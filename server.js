@@ -4,10 +4,10 @@ import path from "path";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Serve Vite build folder
+// Serve statische Vite build
 app.use(express.static(path.join(process.cwd(), "dist")));
 
-// Fallback voor SPA
+// Fallback voor SPA routes
 app.get("*", (req, res) => {
   res.sendFile(path.join(process.cwd(), "dist", "index.html"));
 });
