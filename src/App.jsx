@@ -13,10 +13,9 @@ function App() {
   const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    // Maak een nieuw bord bij load
     const initBoard = Array.from({ length: BOARD_SIZE }, (_, y) =>
       Array.from({ length: BOARD_SIZE }, (_, x) => ({
-        discovered: x === 0 && y === 0, // starttegel zichtbaar
+        discovered: x === 0 && y === 0,
         x,
         y
       }))
@@ -32,7 +31,6 @@ function App() {
         if (e.key === "ArrowDown") y = Math.min(y + 1, BOARD_SIZE - 1);
         if (e.key === "ArrowLeft") x = Math.max(x - 1, 0);
         if (e.key === "ArrowRight") x = Math.min(x + 1, BOARD_SIZE - 1);
-        // ontdek tegel
         setBoard((b) => {
           const newBoard = b.map((row) => row.map((tile) => ({ ...tile })));
           newBoard[y][x].discovered = true;
@@ -41,7 +39,6 @@ function App() {
         return { x, y };
       });
     };
-
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
