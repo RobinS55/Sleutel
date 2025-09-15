@@ -1,66 +1,116 @@
 import React, { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Room grootte
+const ROOM_SIZE = 20;
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Genereer een room met een pad en enkele doodlopende paden
+function generateRoom() {
+  const tiles = Array.from({ length: ROOM_SIZE }, (_, y) =>
+    Array.from({ length: ROOM_SIZE }, (_, x) => ({
+      x,
+      y,
+      type: 'wall',
+      discovered: false
+    }))
+  );
 
-const BOARD_SIZE = 4;
+  // Willekeurig pad van linksboven naar rechtsonder
+  let cx = 0;
+  let cy = 0;
+  while (cx < ROOM_SIZE && cy < ROOM_SIZE) {
+    tiles[cy][cx].type = 'path';
 
-function App() {
-  const [board, setBoard] = useState([]);
+    if (Math.random() < 0.5 && cx < ROOM_SIZE - 1) cx++;
+    else if (cy < ROOM_SIZE - 1) cy++;
+    else cx++;
+  }
+
+  // Voeg enkele doodlopende paden toe
+  for (let i = 0; i < 30; i++) {
+    const x = Math.floor(Math.random() * ROOM_SIZE);
+    const y = Math.floor(Math.random() * ROOM_SIZE);
+    if (tiles[y][x].type === 'wall') {
+      tiles[y][x].type = 'deadend';
+    }
+  }
+
+  return { tiles, width: ROOM_SIZE, height: ROOM_SIZE };
+}
+
+// Room component
+function Room({ room, playerPos }) {
+  const TILE_SIZE = 40; // pixels per tile
+
+  return (
+    <div
+      className="room"
+      style={{
+        width: room.width * TILE_SIZE,
+        height: room.height * TILE_SIZE,
+        overflow: 'auto',
+        border: '2px solid black',
+        position: 'relative'
+      }}
+    >
+      {room.tiles.map((row, y) =>
+        row.map((tile, x) => (
+          <div
+            key={`${x}-${y}`}
+            style={{
+              width: TILE_SIZE,
+              height: TILE_SIZE,
+              position: 'absolute',
+              top: y * TILE_SIZE,
+              left: x * TILE_SIZE,
+              backgroundColor:
+                playerPos.x === x && playerPos.y === y
+                  ? 'yellow'
+                  : tile.type === 'path'
+                  ? 'lightgreen'
+                  : tile.type === 'deadend'
+                  ? 'red'
+                  : 'gray',
+              border: '1px solid black',
+              boxSizing: 'border-box'
+            }}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+// App component
+export default function App() {
+  const [room] = useState(() => generateRoom());
   const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const initBoard = Array.from({ length: BOARD_SIZE }, (_, y) =>
-      Array.from({ length: BOARD_SIZE }, (_, x) => ({
-        discovered: x === 0 && y === 0,
-        x,
-        y
-      }))
-    );
-    setBoard(initBoard);
-  }, []);
 
   useEffect(() => {
     const handleKey = (e) => {
       setPlayerPos((prev) => {
         let { x, y } = prev;
-        if (e.key === "ArrowUp") y = Math.max(y - 1, 0);
-        if (e.key === "ArrowDown") y = Math.min(y + 1, BOARD_SIZE - 1);
-        if (e.key === "ArrowLeft") x = Math.max(x - 1, 0);
-        if (e.key === "ArrowRight") x = Math.min(x + 1, BOARD_SIZE - 1);
-        setBoard((b) => {
-          const newBoard = b.map((row) => row.map((tile) => ({ ...tile })));
-          newBoard[y][x].discovered = true;
-          return newBoard;
-        });
-        return { x, y };
+        let nx = x;
+        let ny = y;
+
+        if (e.key === "ArrowUp") ny = Math.max(y - 1, 0);
+        if (e.key === "ArrowDown") ny = Math.min(y + 1, ROOM_SIZE - 1);
+        if (e.key === "ArrowLeft") nx = Math.max(x - 1, 0);
+        if (e.key === "ArrowRight") nx = Math.min(x + 1, ROOM_SIZE - 1);
+
+        // alleen bewegen op path of deadend
+        const target = room.tiles[ny][nx];
+        if (target.type === 'path' || target.type === 'deadend') {
+          // markeer ontdekt
+          target.discovered = true;
+          return { x: nx, y: ny };
+        }
+        return prev;
       });
     };
+
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, []);
+  }, [room]);
 
-  return (
-    <div className="board">
-      {board.map((row, y) => (
-        <div key={y} className="row">
-          {row.map((tile, x) => (
-            <div
-              key={x}
-              className={`tile ${tile.discovered ? "discovered" : ""} ${
-                playerPos.x === x && playerPos.y === y ? "player" : ""
-              }`}
-            >
-              {playerPos.x === x && playerPos.y === y ? "😃" : ""}
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
+  return <Room room={room} playerPos={playerPos} />;
 }
-
-export default App;
