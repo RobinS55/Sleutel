@@ -1,14 +1,17 @@
 {
-"name": "sleutel",
-"version": "0.0.1",
-"scripts": {
-"dev": "vite",
-"build": "vite build",
-"preview": "vite preview"
-},
-"dependencies": {
-"@supabase/supabase-js": "^2.39.1",
-"react": "^18.2.0",
-"react-dom": "^18.2.0"
-}
+  "name": "bordspel",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@supabase/supabase-js": "^2.25.0"
+  },
+  "devDependencies": {
+    "vite": "^4.3.9"
+  }
 }
