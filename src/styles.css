@@ -1,26 +1,11 @@
-.board {
-  display: inline-block;
+.room {
   margin: 2rem;
-}
-
-.row {
-  display: flex;
+  background-color: #ccc;
 }
 
 .tile {
-  width: 60px;
-  height: 60px;
-  border: 1px solid black;
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: gray;
-}
-
-.tile.discovered {
-  background-color: lightgreen;
-}
-
-.tile.player {
-  background-color: yellow;
+  font-weight: bold;
 }
