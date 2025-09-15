@@ -5,5 +5,8 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: "dist"
+  },
+  preview: {
+    allowedHosts: ["sleutel.onrender.com", "localhost"]
   }
 });
