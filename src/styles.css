@@ -1,23 +1,26 @@
-body {
-font-family: sans-serif;
-padding: 1rem;
+.board {
+  display: inline-block;
+  margin: 2rem;
 }
-.grid {
-display: grid;
-grid-template-columns: repeat(4, 50px);
-grid-template-rows: repeat(4, 50px);
-gap: 4px;
+
+.row {
+  display: flex;
 }
+
 .tile {
-display: flex;
-align-items: center;
-justify-content: center;
-border: 1px solid #ccc;
+  width: 60px;
+  height: 60px;
+  border: 1px solid black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: gray;
 }
-.tile.open {
-background: #eee;
+
+.tile.discovered {
+  background-color: lightgreen;
 }
-.tile.hidden {
-background: #666;
-color: white;
+
+.tile.player {
+  background-color: yellow;
 }
