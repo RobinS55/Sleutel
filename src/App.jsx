@@ -1,39 +1,69 @@
-import React, { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import React, { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const supabase = createClient(
-import.meta.env.VITE_SUPABASE_URL,
-import.meta.env.VITE_SUPABASE_ANON_KEY
-)
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+const BOARD_SIZE = 4;
 
-export default function App() {
-const [rectangles, setRectangles] = useState([])
+function App() {
+  const [board, setBoard] = useState([]);
+  const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
 
+  useEffect(() => {
+    // Maak een nieuw bord bij load
+    const initBoard = Array.from({ length: BOARD_SIZE }, (_, y) =>
+      Array.from({ length: BOARD_SIZE }, (_, x) => ({
+        discovered: x === 0 && y === 0, // starttegel zichtbaar
+        x,
+        y
+      }))
+    );
+    setBoard(initBoard);
+  }, []);
 
-useEffect(() => {
-loadGame()
-}, [])
+  useEffect(() => {
+    const handleKey = (e) => {
+      setPlayerPos((prev) => {
+        let { x, y } = prev;
+        if (e.key === "ArrowUp") y = Math.max(y - 1, 0);
+        if (e.key === "ArrowDown") y = Math.min(y + 1, BOARD_SIZE - 1);
+        if (e.key === "ArrowLeft") x = Math.max(x - 1, 0);
+        if (e.key === "ArrowRight") x = Math.min(x + 1, BOARD_SIZE - 1);
+        // ontdek tegel
+        setBoard((b) => {
+          const newBoard = b.map((row) => row.map((tile) => ({ ...tile })));
+          newBoard[y][x].discovered = true;
+          return newBoard;
+        });
+        return { x, y };
+      });
+    };
 
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
-async function loadGame() {
-let { data, error } = await supabase.from('rectangles').select('*')
-if (error) console.error(error)
-else setRectangles(data)
+  return (
+    <div className="board">
+      {board.map((row, y) => (
+        <div key={y} className="row">
+          {row.map((tile, x) => (
+            <div
+              key={x}
+              className={`tile ${tile.discovered ? "discovered" : ""} ${
+                playerPos.x === x && playerPos.y === y ? "player" : ""
+              }`}
+            >
+              {playerPos.x === x && playerPos.y === y ? "😃" : ""}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
-
-return (
-<div>
-<h1>Sleutel Bordspel</h1>
-<div className="grid">
-{rectangles.map((r) => (
-<div key={r.id} className={`tile ${r.discovered ? 'open' : 'hidden'}`}>
-{r.discovered ? '⬜' : '❓'}
-</div>
-))}
-</div>
-</div>
-)
-}
+export default App;
