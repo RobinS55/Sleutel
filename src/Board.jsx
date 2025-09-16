@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import Room from "./Room";
 
-const ROOM_WIDTH = 40;   // 2x zo breed
-const ROOM_HEIGHT = 20;
-const BOARD_WIDTH = 4;
-const BOARD_HEIGHT = 4;
+const ROOM_WIDTH = 20;  // tegels per kamer (breed)
+const ROOM_HEIGHT = 10; // tegels per kamer (hoog)
+const BOARD_WIDTH = 8;  // kamers horizontaal
+const BOARD_HEIGHT = 4; // kamers verticaal
+const STEP_SIZE = 2;    // aantal tegels per keypress
 
 function carveMaze(width, height, exits) {
   const tiles = Array.from({ length: height }, () =>
@@ -70,7 +71,6 @@ function generateRoom(x, y) {
   }
 
   const tiles = carveMaze(ROOM_WIDTH, ROOM_HEIGHT, exits);
-
   return { x, y, width: ROOM_WIDTH, height: ROOM_HEIGHT, tiles, exits };
 }
 
@@ -90,10 +90,10 @@ export default function Board() {
       const room = board[currentRoom.y][currentRoom.x];
       let { x, y } = playerPos;
 
-      if (e.key === "ArrowUp") y -= 1;
-      if (e.key === "ArrowDown") y += 1;
-      if (e.key === "ArrowLeft") x -= 1;
-      if (e.key === "ArrowRight") x += 1;
+      if (e.key === "ArrowUp") y -= STEP_SIZE;
+      if (e.key === "ArrowDown") y += STEP_SIZE;
+      if (e.key === "ArrowLeft") x -= STEP_SIZE;
+      if (e.key === "ArrowRight") x += STEP_SIZE;
 
       if (x < 0 || y < 0 || x >= ROOM_WIDTH || y >= ROOM_HEIGHT) return;
       if (room.tiles[y][x] === "wall") return;
@@ -140,22 +140,32 @@ export default function Board() {
   }, [playerPos, currentRoom, board]);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${BOARD_WIDTH}, auto)` }}>
-      {board.map((row, rowIndex) =>
-        row.map((room, colIndex) => {
-          const key = `${colIndex},${rowIndex}`;
-          const revealed = revealedRooms.has(key);
-          const isCurrent = currentRoom.x === colIndex && currentRoom.y === rowIndex;
-          return (
-            <Room
-              key={key}
-              room={room}
-              revealed={revealed}
-              playerPos={isCurrent ? playerPos : null}
-            />
-          );
-        })
-      )}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${BOARD_WIDTH * ROOM_WIDTH}, 30px)`,
+        gridTemplateRows: `repeat(${BOARD_HEIGHT * ROOM_HEIGHT}, 30px)`
+      }}
+    >
+      {board.flat().map((room) => {
+        const revealed = revealedRooms.has(`${room.x},${room.y}`);
+        const offsetX = room.x * ROOM_WIDTH;
+        const offsetY = room.y * ROOM_HEIGHT;
+
+        return (
+          <Room
+            key={`${room.x},${room.y}`}
+            room={room}
+            revealed={revealed}
+            playerPos={
+              currentRoom.x === room.x && currentRoom.y === room.y
+                ? { x: playerPos.x + offsetX, y: playerPos.y + offsetY }
+                : null
+            }
+            offset={{ x: offsetX, y: offsetY }}
+          />
+        );
+      })}
     </div>
   );
 }
