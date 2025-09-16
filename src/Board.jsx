@@ -1,87 +1,94 @@
-import React, { useState, useEffect } from "react";
-import Room from "./Room";
+import React, { useState, useEffect, useRef } from "react";
 
 const ROOM_WIDTH = 20;
 const ROOM_HEIGHT = 10;
+const TILE_SIZE = 30;
 const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
 const STEP_SIZE = 2;
 
-function carveMaze(width, height, exits) {
+function carveMaze(width, height) {
   const tiles = Array.from({ length: height }, () =>
-    Array.from({ length: width }, () => "wall")
+    Array.from({ length: width }, () => "path")
   );
-
-  function inBounds(x, y) {
-    return x >= 0 && y >= 0 && x < width && y < height;
-  }
-
-  function dfs(x, y) {
-    tiles[y][x] = "path";
-    const dirs = [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1]
-    ].sort(() => Math.random() - 0.5);
-
-    for (const [dx, dy] of dirs) {
-      const nx = x + dx * 2;
-      const ny = y + dy * 2;
-      if (inBounds(nx, ny) && tiles[ny][nx] === "wall") {
-        tiles[y + dy][x + dx] = "path";
-        dfs(nx, ny);
-      }
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (Math.random() < 0.2) tiles[y][x] = "wall";
     }
   }
-
-  dfs(1, 1);
-
-  for (const dir of ["left", "right", "top", "bottom"]) {
-    const exit = exits[dir];
-    if (!exit) continue;
-    tiles[exit.y][exit.x] = "path";
-    if (exit.x === 0) tiles[exit.y][1] = "path";
-    if (exit.x === width - 1) tiles[exit.y][width - 2] = "path";
-    if (exit.y === 0) tiles[1][exit.x] = "path";
-    if (exit.y === height - 1) tiles[height - 2][exit.x] = "path";
-  }
-
   return tiles;
 }
 
 function generateRoom(x, y) {
-  let exits = {
+  const tiles = carveMaze(ROOM_WIDTH, ROOM_HEIGHT);
+  const exits = {
     left: { x: 0, y: Math.floor(ROOM_HEIGHT / 2) },
     right: { x: ROOM_WIDTH - 1, y: Math.floor(ROOM_HEIGHT / 2) },
     top: { x: Math.floor(ROOM_WIDTH / 2), y: 0 },
     bottom: { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 }
   };
-
   if (x === 0 && y === 0) {
     exits.left = null;
     exits.top = null;
   }
-
-  const tiles = carveMaze(ROOM_WIDTH, ROOM_HEIGHT, exits);
-  return { x, y, width: ROOM_WIDTH, height: ROOM_HEIGHT, tiles, exits };
+  return { x, y, tiles, exits };
 }
 
 export default function Board() {
+  const canvasRef = useRef(null);
   const [board] = useState(() =>
-    Array.from({ length: BOARD_HEIGHT }, (_, row) =>
-      Array.from({ length: BOARD_WIDTH }, (_, col) => generateRoom(col, row))
+    Array.from({ length: BOARD_HEIGHT }, (_, y) =>
+      Array.from({ length: BOARD_WIDTH }, (_, x) => generateRoom(x, y))
     )
   );
 
-  const [revealedRooms, setRevealedRooms] = useState(new Set(["0,0"]));
   const [currentRoom, setCurrentRoom] = useState({ x: 0, y: 0 });
   const [playerPos, setPlayerPos] = useState({ x: 1, y: 1 });
+  const [revealedRooms, setRevealedRooms] = useState(new Set(["0,0"]));
+
+  useEffect(() => {
+    function draw() {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let ry = 0; ry < BOARD_HEIGHT; ry++) {
+        for (let rx = 0; rx < BOARD_WIDTH; rx++) {
+          const key = `${rx},${ry}`;
+          if (!revealedRooms.has(key)) continue; // alleen onthulde kamers tekenen
+
+          const room = board[ry][rx];
+          for (let y = 0; y < ROOM_HEIGHT; y++) {
+            for (let x = 0; x < ROOM_WIDTH; x++) {
+              let color = room.tiles[y][x] === "wall" ? "#222" : "#ccc";
+              for (const dir of ["left", "right", "top", "bottom"]) {
+                const exit = room.exits[dir];
+                if (exit && exit.x === x && exit.y === y) color = "#0f0";
+              }
+              const px = (rx * ROOM_WIDTH + x) * TILE_SIZE;
+              const py = (ry * ROOM_HEIGHT + y) * TILE_SIZE;
+              ctx.fillStyle = color;
+              ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+            }
+          }
+        }
+      }
+
+      // speler
+      const px = (currentRoom.x * ROOM_WIDTH + playerPos.x) * TILE_SIZE;
+      const py = (currentRoom.y * ROOM_HEIGHT + playerPos.y) * TILE_SIZE;
+      ctx.fillStyle = "red";
+      ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+    }
+
+    draw();
+  }, [board, playerPos, currentRoom, revealedRooms]);
 
   useEffect(() => {
     function handleKey(e) {
-      const room = board[currentRoom.y][currentRoom.x];
       let { x, y } = playerPos;
+      const room = board[currentRoom.y][currentRoom.x];
 
       if (e.key === "ArrowUp") y -= STEP_SIZE;
       if (e.key === "ArrowDown") y += STEP_SIZE;
@@ -101,27 +108,26 @@ export default function Board() {
           let newPos = { x, y };
 
           if (dir === "left") {
-            newRoomX = (currentRoom.x - 1 + BOARD_WIDTH) % BOARD_WIDTH;
+            newRoomX = Math.max(0, currentRoom.x - 1);
             newPos = { x: ROOM_WIDTH - 1, y: Math.floor(ROOM_HEIGHT / 2) };
           }
           if (dir === "right") {
-            newRoomX = (currentRoom.x + 1) % BOARD_WIDTH;
+            newRoomX = Math.min(BOARD_WIDTH - 1, currentRoom.x + 1);
             newPos = { x: 0, y: Math.floor(ROOM_HEIGHT / 2) };
           }
           if (dir === "top") {
-            newRoomY = (currentRoom.y - 1 + BOARD_HEIGHT) % BOARD_HEIGHT;
+            newRoomY = Math.max(0, currentRoom.y - 1);
             newPos = { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 };
           }
           if (dir === "bottom") {
-            newRoomY = (currentRoom.y + 1) % BOARD_HEIGHT;
+            newRoomY = Math.min(BOARD_HEIGHT - 1, currentRoom.y + 1);
             newPos = { x: Math.floor(ROOM_WIDTH / 2), y: 0 };
           }
 
-          if (newRoomX === 0 && newRoomY === 0 && !(currentRoom.x === 0 && currentRoom.y === 0)) return;
-
           setCurrentRoom({ x: newRoomX, y: newRoomY });
           setPlayerPos(newPos);
-          setRevealedRooms((prev) => new Set([...prev, `${newRoomX},${newRoomY}`]));
+          const key = `${newRoomX},${newRoomY}`;
+          setRevealedRooms((prev) => new Set(prev).add(key));
         }
       }
     }
@@ -131,28 +137,10 @@ export default function Board() {
   }, [playerPos, currentRoom, board]);
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${BOARD_WIDTH}, auto)`,
-        gridTemplateRows: `repeat(${BOARD_HEIGHT}, auto)`
-      }}
-    >
-      {board.map((row, rowIndex) =>
-        row.map((room, colIndex) => {
-          const key = `${colIndex},${rowIndex}`;
-          const revealed = revealedRooms.has(key);
-          const isCurrent = currentRoom.x === colIndex && currentRoom.y === rowIndex;
-          return (
-            <Room
-              key={key}
-              room={room}
-              revealed={revealed}
-              playerPos={isCurrent ? playerPos : null}
-            />
-          );
-        })
-      )}
-    </div>
+    <canvas
+      ref={canvasRef}
+      width={BOARD_WIDTH * ROOM_WIDTH * TILE_SIZE}
+      height={BOARD_HEIGHT * ROOM_HEIGHT * TILE_SIZE}
+    />
   );
 }
