@@ -6,8 +6,56 @@ const ROOM_HEIGHT = 20;
 const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
 
+// Maze generator
+function carveMaze(width, height, exits) {
+  const tiles = Array.from({ length: height }, () =>
+    Array.from({ length: width }, () => "wall")
+  );
+
+  function inBounds(x, y) {
+    return x >= 0 && y >= 0 && x < width && y < height;
+  }
+
+  function dfs(x, y) {
+    tiles[y][x] = "path";
+    const dirs = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1]
+    ].sort(() => Math.random() - 0.5);
+
+    for (const [dx, dy] of dirs) {
+      const nx = x + dx * 2;
+      const ny = y + dy * 2;
+      if (inBounds(nx, ny) && tiles[ny][nx] === "wall") {
+        tiles[y + dy][x + dx] = "path";
+        dfs(nx, ny);
+      }
+    }
+  }
+
+  // start ergens binnen
+  dfs(1, 1);
+
+  // exits forceren
+  function connectExit(exit) {
+    if (!exit) return;
+    tiles[exit.y][exit.x] = "path";
+    if (exit.x === 0) tiles[exit.y][1] = "path";
+    if (exit.x === width - 1) tiles[exit.y][width - 2] = "path";
+    if (exit.y === 0) tiles[1][exit.x] = "path";
+    if (exit.y === height - 1) tiles[height - 2][exit.x] = "path";
+  }
+
+  for (const dir of ["left", "right", "top", "bottom"]) {
+    connectExit(exits[dir]);
+  }
+
+  return tiles;
+}
+
 function generateRoom(x, y) {
-  // standaard exits
   let exits = {
     left: { x: 0, y: Math.floor(ROOM_HEIGHT / 2) },
     right: { x: ROOM_WIDTH - 1, y: Math.floor(ROOM_HEIGHT / 2) },
@@ -15,7 +63,7 @@ function generateRoom(x, y) {
     bottom: { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 }
   };
 
-  // speciale regel voor startkamer (0,0): alleen rechts en onder
+  // Startkamer: alleen rechts en onder
   if (x === 0 && y === 0) {
     exits = {
       left: null,
@@ -25,20 +73,7 @@ function generateRoom(x, y) {
     };
   }
 
-  // simpele tile generator: alles muur behalve doorgangen
-  const tiles = Array.from({ length: ROOM_HEIGHT }, (_, row) =>
-    Array.from({ length: ROOM_WIDTH }, (_, col) => {
-      if (
-        (exits.left && col === exits.left.x && row === exits.left.y) ||
-        (exits.right && col === exits.right.x && row === exits.right.y) ||
-        (exits.top && col === exits.top.x && row === exits.top.y) ||
-        (exits.bottom && col === exits.bottom.x && row === exits.bottom.y)
-      ) {
-        return "path";
-      }
-      return Math.random() < 0.2 ? "path" : "wall"; // willekeurige paden
-    })
-  );
+  const tiles = carveMaze(ROOM_WIDTH, ROOM_HEIGHT, exits);
 
   return { x, y, width: ROOM_WIDTH, height: ROOM_HEIGHT, tiles, exits };
 }
@@ -64,13 +99,11 @@ export default function Board() {
       if (e.key === "ArrowLeft") x -= 1;
       if (e.key === "ArrowRight") x += 1;
 
-      // check of nieuwe tile bestaat
       if (x < 0 || y < 0 || x >= ROOM_WIDTH || y >= ROOM_HEIGHT) return;
       if (room.tiles[y][x] === "wall") return;
 
       setPlayerPos({ x, y });
 
-      // check of speler op een exit staat
       for (const dir of ["left", "right", "top", "bottom"]) {
         const exit = room.exits[dir];
         if (exit && exit.x === x && exit.y === y) {
@@ -80,41 +113,32 @@ export default function Board() {
 
           if (dir === "left") {
             newRoomX = (currentRoom.x - 1 + BOARD_WIDTH) % BOARD_WIDTH;
-            newPos = {
-              x: ROOM_WIDTH - 1,
-              y: Math.floor(ROOM_HEIGHT / 2)
-            };
+            newPos = { x: ROOM_WIDTH - 1, y: Math.floor(ROOM_HEIGHT / 2) };
           }
           if (dir === "right") {
             newRoomX = (currentRoom.x + 1) % BOARD_WIDTH;
-            newPos = {
-              x: 0,
-              y: Math.floor(ROOM_HEIGHT / 2)
-            };
+            newPos = { x: 0, y: Math.floor(ROOM_HEIGHT / 2) };
           }
           if (dir === "top") {
             newRoomY = (currentRoom.y - 1 + BOARD_HEIGHT) % BOARD_HEIGHT;
-            newPos = {
-              x: Math.floor(ROOM_WIDTH / 2),
-              y: ROOM_HEIGHT - 1
-            };
+            newPos = { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 };
           }
           if (dir === "bottom") {
             newRoomY = (currentRoom.y + 1) % BOARD_HEIGHT;
-            newPos = {
-              x: Math.floor(ROOM_WIDTH / 2),
-              y: 0
-            };
+            newPos = { x: Math.floor(ROOM_WIDTH / 2), y: 0 };
           }
 
-          // speciale regel: je kunt niet naar (0,0) terug
-          if (newRoomX === 0 && newRoomY === 0 && !(currentRoom.x === 0 && currentRoom.y === 0)) {
-            return; // blokkeer terugweg
+          // blokkeer terug naar startkamer
+          if (
+            newRoomX === 0 &&
+            newRoomY === 0 &&
+            !(currentRoom.x === 0 && currentRoom.y === 0)
+          ) {
+            return;
           }
 
           setCurrentRoom({ x: newRoomX, y: newRoomY });
           setPlayerPos(newPos);
-
           setRevealedRooms((prev) => new Set([...prev, `${newRoomX},${newRoomY}`]));
         }
       }
