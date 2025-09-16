@@ -1,23 +1,17 @@
 import React from "react";
 
-export default function Room({ room, revealed, playerPos }) {
-  const size = 15; // 15px per tegel
+export default function Room({ room, revealed, playerPos, offset }) {
+  const TILE_SIZE = 30;
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${room.width}, ${size}px)`,
-        gridTemplateRows: `repeat(${room.height}, ${size}px)`,
-        background: revealed ? "#eee" : "#333"
-      }}
-    >
+    <>
       {revealed &&
         room.tiles.map((row, y) =>
           row.map((tile, x) => {
+            const globalX = x + offset.x;
+            const globalY = y + offset.y;
             let color = tile === "wall" ? "#222" : "#ccc";
 
-            // exits groen
             for (const dir of ["left", "right", "top", "bottom"]) {
               const exit = room.exits[dir];
               if (exit && exit.x === x && exit.y === y) {
@@ -25,23 +19,24 @@ export default function Room({ room, revealed, playerPos }) {
               }
             }
 
-            if (playerPos && playerPos.x === x && playerPos.y === y) {
+            if (playerPos && playerPos.x === globalX && playerPos.y === globalY) {
               color = "red";
             }
 
             return (
               <div
-                key={`${x},${y}`}
+                key={`${globalX},${globalY}`}
                 style={{
-                  width: size,
-                  height: size,
+                  width: TILE_SIZE,
+                  height: TILE_SIZE,
                   background: color,
+                  boxSizing: "border-box",
                   border: "1px solid #555"
                 }}
               />
             );
           })
         )}
-    </div>
+    </>
   );
 }
