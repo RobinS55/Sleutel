@@ -3,10 +3,8 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  build: {
-    outDir: "dist"
-  },
   preview: {
-    allowedHosts: ["sleutel.onrender.com", "localhost"]
+    port: 4173,
+    allowedHosts: ["sleutel.onrender.com"]
   }
 });
