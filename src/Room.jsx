@@ -1,7 +1,7 @@
 import React from "react";
 
 export default function Room({ room, revealed, playerPos }) {
-  const size = 10; // px per tile
+  const size = 10;
 
   return (
     <div
@@ -36,3 +36,4 @@ export default function Room({ room, revealed, playerPos }) {
     </div>
   );
 }
+
