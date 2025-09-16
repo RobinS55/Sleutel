@@ -1,15 +1,16 @@
 import express from "express";
 import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Serve statische Vite build
-app.use(express.static(path.join(process.cwd(), "dist")));
+const PORT = process.env.PORT || 10000;
 
-// Fallback voor SPA routes
+app.use(express.static(path.join(__dirname, "dist")));
+
 app.get("*", (req, res) => {
-  res.sendFile(path.join(process.cwd(), "dist", "index.html"));
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
 app.listen(PORT, () => {
