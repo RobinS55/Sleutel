@@ -5,32 +5,71 @@ const ROOM_HEIGHT = 10;
 const TILE_SIZE = 30;
 const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
-const STEP_SIZE = 2;
+const STEP_SIZE = 1; // 1 tegel per keypress nu
 
-function carveMaze(width, height) {
-  const tiles = Array.from({ length: height }, () =>
-    Array.from({ length: width }, () => "path")
+// genereer een kamer met logisch hoofdpad + doodlopende zijpaden
+function generateRoom(x, y) {
+  const tiles = Array.from({ length: ROOM_HEIGHT }, () =>
+    Array.from({ length: ROOM_WIDTH }, () => "wall")
   );
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (Math.random() < 0.2) tiles[y][x] = "wall";
+
+  // startpunt in de kamer
+  const startX = 1;
+  const startY = 1;
+
+  // hoofdpad naar rechts en naar beneden
+  const mainPath = [];
+
+  let cx = startX;
+  let cy = startY;
+  tiles[cy][cx] = "path";
+  mainPath.push({ x: cx, y: cy });
+
+  while (cx < ROOM_WIDTH - 2) {
+    cx++;
+    tiles[cy][cx] = "path";
+    mainPath.push({ x: cx, y: cy });
+  }
+
+  while (cy < ROOM_HEIGHT - 2) {
+    cy++;
+    tiles[cy][cx] = "path";
+    mainPath.push({ x: cx, y: cy });
+  }
+
+  // voeg enkele doodlopende zijpaden toe
+  for (const p of mainPath) {
+    if (Math.random() < 0.3) {
+      let length = Math.floor(Math.random() * 3) + 1;
+      let dir = Math.random() < 0.5 ? "vertical" : "horizontal";
+      let sx = p.x;
+      let sy = p.y;
+      for (let i = 0; i < length; i++) {
+        if (dir === "vertical") sy++;
+        else sx++;
+        if (sx >= ROOM_WIDTH - 1 || sy >= ROOM_HEIGHT - 1) break;
+        tiles[sy][sx] = "path";
+      }
     }
   }
-  return tiles;
-}
 
-function generateRoom(x, y) {
-  const tiles = carveMaze(ROOM_WIDTH, ROOM_HEIGHT);
+  // definieer exits
   const exits = {
     left: { x: 0, y: Math.floor(ROOM_HEIGHT / 2) },
     right: { x: ROOM_WIDTH - 1, y: Math.floor(ROOM_HEIGHT / 2) },
     top: { x: Math.floor(ROOM_WIDTH / 2), y: 0 },
     bottom: { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 }
   };
+
   if (x === 0 && y === 0) {
     exits.left = null;
     exits.top = null;
   }
+
+  // zorg dat hoofdpad naar exits leidt
+  if (exits.right) tiles[exits.right.y][exits.right.x] = "path";
+  if (exits.bottom) tiles[exits.bottom.y][exits.bottom.x] = "path";
+
   return { x, y, tiles, exits };
 }
 
@@ -56,7 +95,7 @@ export default function Board() {
       for (let ry = 0; ry < BOARD_HEIGHT; ry++) {
         for (let rx = 0; rx < BOARD_WIDTH; rx++) {
           const key = `${rx},${ry}`;
-          if (!revealedRooms.has(key)) continue; // alleen onthulde kamers tekenen
+          if (!revealedRooms.has(key)) continue;
 
           const room = board[ry][rx];
           for (let y = 0; y < ROOM_HEIGHT; y++) {
@@ -75,7 +114,7 @@ export default function Board() {
         }
       }
 
-      // speler
+      // speler tekenen
       const px = (currentRoom.x * ROOM_WIDTH + playerPos.x) * TILE_SIZE;
       const py = (currentRoom.y * ROOM_HEIGHT + playerPos.y) * TILE_SIZE;
       ctx.fillStyle = "red";
@@ -95,11 +134,13 @@ export default function Board() {
       if (e.key === "ArrowLeft") x -= STEP_SIZE;
       if (e.key === "ArrowRight") x += STEP_SIZE;
 
+      // check muren
       if (x < 0 || y < 0 || x >= ROOM_WIDTH || y >= ROOM_HEIGHT) return;
       if (room.tiles[y][x] === "wall") return;
 
       setPlayerPos({ x, y });
 
+      // check exits
       for (const dir of ["left", "right", "top", "bottom"]) {
         const exit = room.exits[dir];
         if (exit && exit.x === x && exit.y === y) {
