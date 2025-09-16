@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
 import Room from "./Room";
 
-const ROOM_WIDTH = 20;
+const ROOM_WIDTH = 40;   // 2x zo breed
 const ROOM_HEIGHT = 20;
 const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
 
-// Maze generator
 function carveMaze(width, height, exits) {
   const tiles = Array.from({ length: height }, () =>
     Array.from({ length: width }, () => "wall")
@@ -35,10 +34,8 @@ function carveMaze(width, height, exits) {
     }
   }
 
-  // start ergens binnen
   dfs(1, 1);
 
-  // exits forceren
   function connectExit(exit) {
     if (!exit) return;
     tiles[exit.y][exit.x] = "path";
@@ -63,7 +60,6 @@ function generateRoom(x, y) {
     bottom: { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 }
   };
 
-  // Startkamer: alleen rechts en onder
   if (x === 0 && y === 0) {
     exits = {
       left: null,
@@ -128,12 +124,7 @@ export default function Board() {
             newPos = { x: Math.floor(ROOM_WIDTH / 2), y: 0 };
           }
 
-          // blokkeer terug naar startkamer
-          if (
-            newRoomX === 0 &&
-            newRoomY === 0 &&
-            !(currentRoom.x === 0 && currentRoom.y === 0)
-          ) {
+          if (newRoomX === 0 && newRoomY === 0 && !(currentRoom.x === 0 && currentRoom.y === 0)) {
             return;
           }
 
