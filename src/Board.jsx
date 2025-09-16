@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import Room from "./Room";
 
-const ROOM_WIDTH = 20;  // tegels per kamer (breed)
-const ROOM_HEIGHT = 10; // tegels per kamer (hoog)
-const BOARD_WIDTH = 8;  // kamers horizontaal
-const BOARD_HEIGHT = 4; // kamers verticaal
-const STEP_SIZE = 2;    // aantal tegels per keypress
+const ROOM_WIDTH = 20;
+const ROOM_HEIGHT = 10;
+const BOARD_WIDTH = 4;
+const BOARD_HEIGHT = 4;
+const STEP_SIZE = 2;
 
 function carveMaze(width, height, exits) {
   const tiles = Array.from({ length: height }, () =>
@@ -37,17 +37,14 @@ function carveMaze(width, height, exits) {
 
   dfs(1, 1);
 
-  function connectExit(exit) {
-    if (!exit) return;
+  for (const dir of ["left", "right", "top", "bottom"]) {
+    const exit = exits[dir];
+    if (!exit) continue;
     tiles[exit.y][exit.x] = "path";
     if (exit.x === 0) tiles[exit.y][1] = "path";
     if (exit.x === width - 1) tiles[exit.y][width - 2] = "path";
     if (exit.y === 0) tiles[1][exit.x] = "path";
     if (exit.y === height - 1) tiles[height - 2][exit.x] = "path";
-  }
-
-  for (const dir of ["left", "right", "top", "bottom"]) {
-    connectExit(exits[dir]);
   }
 
   return tiles;
@@ -62,12 +59,8 @@ function generateRoom(x, y) {
   };
 
   if (x === 0 && y === 0) {
-    exits = {
-      left: null,
-      top: null,
-      right: exits.right,
-      bottom: exits.bottom
-    };
+    exits.left = null;
+    exits.top = null;
   }
 
   const tiles = carveMaze(ROOM_WIDTH, ROOM_HEIGHT, exits);
@@ -124,9 +117,7 @@ export default function Board() {
             newPos = { x: Math.floor(ROOM_WIDTH / 2), y: 0 };
           }
 
-          if (newRoomX === 0 && newRoomY === 0 && !(currentRoom.x === 0 && currentRoom.y === 0)) {
-            return;
-          }
+          if (newRoomX === 0 && newRoomY === 0 && !(currentRoom.x === 0 && currentRoom.y === 0)) return;
 
           setCurrentRoom({ x: newRoomX, y: newRoomY });
           setPlayerPos(newPos);
@@ -143,29 +134,25 @@ export default function Board() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: `repeat(${BOARD_WIDTH * ROOM_WIDTH}, 30px)`,
-        gridTemplateRows: `repeat(${BOARD_HEIGHT * ROOM_HEIGHT}, 30px)`
+        gridTemplateColumns: `repeat(${BOARD_WIDTH}, auto)`,
+        gridTemplateRows: `repeat(${BOARD_HEIGHT}, auto)`
       }}
     >
-      {board.flat().map((room) => {
-        const revealed = revealedRooms.has(`${room.x},${room.y}`);
-        const offsetX = room.x * ROOM_WIDTH;
-        const offsetY = room.y * ROOM_HEIGHT;
-
-        return (
-          <Room
-            key={`${room.x},${room.y}`}
-            room={room}
-            revealed={revealed}
-            playerPos={
-              currentRoom.x === room.x && currentRoom.y === room.y
-                ? { x: playerPos.x + offsetX, y: playerPos.y + offsetY }
-                : null
-            }
-            offset={{ x: offsetX, y: offsetY }}
-          />
-        );
-      })}
+      {board.map((row, rowIndex) =>
+        row.map((room, colIndex) => {
+          const key = `${colIndex},${rowIndex}`;
+          const revealed = revealedRooms.has(key);
+          const isCurrent = currentRoom.x === colIndex && currentRoom.y === rowIndex;
+          return (
+            <Room
+              key={key}
+              room={room}
+              revealed={revealed}
+              playerPos={isCurrent ? playerPos : null}
+            />
+          );
+        })
+      )}
     </div>
   );
 }
