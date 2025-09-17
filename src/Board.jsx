@@ -70,68 +70,59 @@ function generateRoom(x, y) {
 
 export default function Board() {
   const canvasRef = useRef(null);
-  const [board, setBoard] = useState([]);
+  const [board, setBoard] = useState(null);
   const [currentRoom, setCurrentRoom] = useState({ x: 0, y: 0 });
   const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 });
   const [revealedRooms, setRevealedRooms] = useState(new Set(["0,0"]));
   const [roomStack, setRoomStack] = useState([]);
 
+  // genereer board
   useEffect(() => {
     const newBoard = Array.from({ length: BOARD_HEIGHT }, (_, y) =>
       Array.from({ length: BOARD_WIDTH }, (_, x) => generateRoom(x, y))
     );
     setBoard(newBoard);
+    setPlayerPos({ x: 0, y: 0 });
   }, []);
 
+  // tekenen
   useEffect(() => {
+    if (!board) return;
     const canvas = canvasRef.current;
-    if (!canvas) return;
     const ctx = canvas.getContext("2d");
-
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-
     canvas.width = vw;
     canvas.height = vh;
 
-    const totalWidth = BOARD_WIDTH * ROOM_WIDTH * TILE_SIZE;
-    const totalHeight = BOARD_HEIGHT * ROOM_HEIGHT * TILE_SIZE;
+    // center op huidige kamer
+    const room = board[currentRoom.y][currentRoom.x];
+    const offsetX = vw / 2 - ROOM_WIDTH * TILE_SIZE / 2;
+    const offsetY = vh / 2 - ROOM_HEIGHT * TILE_SIZE / 2;
 
-    const scaleX = vw / totalWidth;
-    const scaleY = vh / totalHeight;
-    ctx.save();
-    ctx.scale(scaleX, scaleY);
+    ctx.clearRect(0, 0, vw, vh);
 
-    ctx.clearRect(0, 0, totalWidth, totalHeight);
-
+    // teken alle kamers licht
     for (let by = 0; by < BOARD_HEIGHT; by++) {
       for (let bx = 0; bx < BOARD_WIDTH; bx++) {
-        const room = board[by][bx];
-        if (!room) continue;
+        const r = board[by][bx];
+        const roomOffsetX = offsetX + (bx - currentRoom.x) * ROOM_WIDTH * TILE_SIZE;
+        const roomOffsetY = offsetY + (by - currentRoom.y) * ROOM_HEIGHT * TILE_SIZE;
 
-        const roomOffsetX = bx * ROOM_WIDTH * TILE_SIZE;
-        const roomOffsetY = by * ROOM_HEIGHT * TILE_SIZE;
-
-        ctx.fillStyle = room.color;
+        // achtergrond
+        ctx.fillStyle = r.color;
         ctx.fillRect(roomOffsetX, roomOffsetY, ROOM_WIDTH * TILE_SIZE, ROOM_HEIGHT * TILE_SIZE);
 
         for (let y = 0; y < ROOM_HEIGHT; y++) {
           for (let x = 0; x < ROOM_WIDTH; x++) {
-            ctx.fillStyle = room.tiles[y][x] === "path" ? "#ccc" : "#222";
-            ctx.beginPath();
-            ctx.arc(
-              roomOffsetX + x * TILE_SIZE + TILE_SIZE / 2,
-              roomOffsetY + y * TILE_SIZE + TILE_SIZE / 2,
-              TILE_SIZE / 2,
-              0,
-              2 * Math.PI
-            );
-            ctx.fill();
+            ctx.fillStyle = r.tiles[y][x] === "path" ? "#ccc" : "#222";
+            ctx.fillRect(roomOffsetX + x * TILE_SIZE, roomOffsetY + y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
           }
         }
 
+        // exits
         for (const dir of ["left", "right", "top", "bottom"]) {
-          const exit = room.exits[dir];
+          const exit = r.exits[dir];
           if (exit) {
             ctx.fillStyle = "green";
             ctx.fillRect(
@@ -143,12 +134,7 @@ export default function Board() {
           }
         }
 
-        if (bx === currentRoom.x && by === currentRoom.y) {
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 4;
-          ctx.strokeRect(roomOffsetX, roomOffsetY, ROOM_WIDTH * TILE_SIZE, ROOM_HEIGHT * TILE_SIZE);
-        }
-
+        // overlay onontdekt
         if (!revealedRooms.has(`${bx},${by}`)) {
           ctx.fillStyle = "rgba(0,0,0,0.5)";
           ctx.fillRect(roomOffsetX, roomOffsetY, ROOM_WIDTH * TILE_SIZE, ROOM_HEIGHT * TILE_SIZE);
@@ -156,18 +142,18 @@ export default function Board() {
       }
     }
 
-    const spX = currentRoom.x * ROOM_WIDTH * TILE_SIZE + playerPos.x * TILE_SIZE;
-    const spY = currentRoom.y * ROOM_HEIGHT * TILE_SIZE + playerPos.y * TILE_SIZE;
+    // speler
+    const spX = offsetX + playerPos.x * TILE_SIZE;
+    const spY = offsetY + playerPos.y * TILE_SIZE;
     ctx.fillStyle = "red";
     ctx.fillRect(spX, spY, TILE_SIZE, TILE_SIZE);
-
-    ctx.restore();
   }, [board, playerPos, currentRoom, revealedRooms]);
 
+  // beweging
   useEffect(() => {
+    if (!board) return;
     function handleKey(e) {
       const room = board[currentRoom.y][currentRoom.x];
-      if (!room) return;
       let { x, y } = playerPos;
 
       if (e.key === "ArrowUp") y -= STEP_SIZE;
@@ -210,10 +196,9 @@ export default function Board() {
         setRoomStack(prev => prev.slice(0, -1));
       }
     }
-
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [playerPos, currentRoom, board, roomStack]);
+  }, [board, playerPos, currentRoom, roomStack]);
 
-  return <canvas ref={canvasRef} style={{ display: "block" }} />;
+  return <canvas ref={canvasRef} style={{ display: "block", margin: 0, padding: 0 }} />;
 }
