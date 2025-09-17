@@ -1,0 +1,41 @@
+.board {
+  display: grid;
+  grid-template-rows: repeat(4, auto);
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 4px;
+}
+
+.room {
+  display: grid;
+  grid-template-rows: repeat(6, 20px);
+  grid-template-columns: repeat(12, 20px);
+  border: 2px solid #333;
+}
+
+.tile {
+  width: 20px;
+  height: 20px;
+}
+
+.wall {
+  background: #222;
+}
+
+.path {
+  background: #666;
+}
+
+.exit {
+  background: green;
+}
+
+.player {
+  background: yellow;
+}
