@@ -4,32 +4,33 @@ import "./Board.css";
 
 const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
-const ROOM_WIDTH = 13;  // oneven voor middens
-const ROOM_HEIGHT = 7;  // oneven voor middens
+const ROOM_WIDTH = 11;  // oneven
+const ROOM_HEIGHT = 7;  // oneven
 
-// Carve een pad van start naar end
-function carvePath(tiles, x1, y1, x2, y2) {
-  let x = x1;
-  let y = y1;
+function createEmptyRoom() {
+  return Array.from({ length: ROOM_HEIGHT }, () =>
+    Array.from({ length: ROOM_WIDTH }, () => "wall")
+  );
+}
+
+function carvePath(tiles, start, end) {
+  let x = start.x;
+  let y = start.y;
   tiles[y][x] = "path";
-  while (x !== x2 || y !== y2) {
-    if (Math.random() < 0.5) {
-      if (x < x2) x++;
-      else if (x > x2) x--;
-    } else {
-      if (y < y2) y++;
-      else if (y > y2) y--;
-    }
+  while (x !== end.x || y !== end.y) {
+    const dx = end.x - x;
+    const dy = end.y - y;
+    if (dx !== 0 && (Math.random() < 0.5 || dy === 0)) x += dx > 0 ? 1 : -1;
+    else if (dy !== 0) y += dy > 0 ? 1 : -1;
     tiles[y][x] = "path";
   }
 }
 
-// Voeg willekeurige zijpaden toe zonder het hoofdpad te verbreken
 function addSidePaths(tiles, paths = 2) {
   for (let i = 0; i < paths; i++) {
     let startX = Math.floor(Math.random() * ROOM_WIDTH);
     let startY = Math.floor(Math.random() * ROOM_HEIGHT);
-    if (tiles[startY][startX] !== "path") continue; // begin op hoofdpad
+    if (tiles[startY][startX] !== "path") continue;
     let length = 1 + Math.floor(Math.random() * 3);
     let x = startX;
     let y = startY;
@@ -45,11 +46,8 @@ function addSidePaths(tiles, paths = 2) {
 }
 
 function generateRoom(x, y) {
-  const tiles = Array.from({ length: ROOM_HEIGHT }, () =>
-    Array.from({ length: ROOM_WIDTH }, () => "wall")
-  );
+  const tiles = createEmptyRoom();
 
-  // Uitgangen exact in het midden
   const exits = {
     left: { x: 0, y: Math.floor(ROOM_HEIGHT / 2) },
     right: { x: ROOM_WIDTH - 1, y: Math.floor(ROOM_HEIGHT / 2) },
@@ -58,30 +56,27 @@ function generateRoom(x, y) {
   };
 
   if (x === 0 && y === 0) {
-    // Startkamer: linksboven, alleen rechts en beneden
-    carvePath(tiles, 0, 0, exits.right.x, exits.right.y);
-    carvePath(tiles, 0, 0, exits.bottom.x, exits.bottom.y);
+    carvePath(tiles, { x: 0, y: 0 }, exits.right);
+    carvePath(tiles, { x: 0, y: 0 }, exits.bottom);
     addSidePaths(tiles, 2);
     return {
       x,
       y,
       tiles,
       exits: { right: exits.right, bottom: exits.bottom },
-      color: `hsl(${Math.random() * 360},50%,25%)`,
+      color: `hsl(${Math.random() * 360},50%,30%)`,
       discovered: true,
       isStart: true,
     };
   }
 
-  // Andere kamers: altijd 4 uitgangen
-  const exitKeys = ["left", "right", "top", "bottom"];
-  const [exit1, exit2] = exitKeys.sort(() => Math.random() - 0.5);
-  carvePath(tiles, exits[exit1].x, exits[exit1].y, exits[exit2].x, exits[exit2].y);
-
+  // Andere kamers: altijd 4 uitgangen met minimaal 1 pad verbonden
+  carvePath(tiles, exits.left, exits.right);
+  carvePath(tiles, exits.top, exits.bottom);
   addSidePaths(tiles, 2);
 
   // Zorg dat alle uitgangen path zijn
-  for (const dir of exitKeys) {
+  for (const dir of ["left", "right", "top", "bottom"]) {
     tiles[exits[dir].y][exits[dir].x] = "path";
   }
 
@@ -90,7 +85,7 @@ function generateRoom(x, y) {
     y,
     tiles,
     exits,
-    color: `hsl(${Math.random() * 360},50%,25%)`,
+    color: `hsl(${Math.random() * 360},50%,30%)`,
     discovered: false,
     isStart: false,
   };
@@ -98,24 +93,18 @@ function generateRoom(x, y) {
 
 function rotateRoom180(room) {
   if (room.isStart) return room;
-
-  const newTiles = Array.from({ length: ROOM_HEIGHT }, () =>
-    Array.from({ length: ROOM_WIDTH }, () => "wall")
-  );
-
+  const newTiles = createEmptyRoom();
   for (let y = 0; y < ROOM_HEIGHT; y++) {
     for (let x = 0; x < ROOM_WIDTH; x++) {
       newTiles[ROOM_HEIGHT - 1 - y][ROOM_WIDTH - 1 - x] = room.tiles[y][x];
     }
   }
-
   const newExits = {
     left: { x: 0, y: ROOM_HEIGHT - 1 - room.exits.right.y },
     right: { x: ROOM_WIDTH - 1, y: ROOM_HEIGHT - 1 - room.exits.left.y },
     top: { x: ROOM_WIDTH - 1 - room.exits.bottom.x, y: 0 },
     bottom: { x: ROOM_WIDTH - 1 - room.exits.top.x, y: ROOM_HEIGHT - 1 },
   };
-
   return { ...room, tiles: newTiles, exits: newExits };
 }
 
@@ -154,7 +143,6 @@ export default function Board() {
       setPlayer((prev) => {
         const room = rooms[prev.roomY]?.[prev.roomX];
         if (!room) return prev;
-
         let nx = prev.x;
         let ny = prev.y;
         let roomX = prev.roomX;
@@ -168,7 +156,7 @@ export default function Board() {
         const currentRoomExits = room.exits;
 
         // LEFT
-        if (nx < 0 && ny === currentRoomExits.left?.y) {
+        if (nx < 0 && currentRoomExits.left) {
           if (roomX > 0) {
             roomX -= 1;
             nx = ROOM_WIDTH - 1;
@@ -181,7 +169,7 @@ export default function Board() {
         }
 
         // RIGHT
-        if (nx >= ROOM_WIDTH && ny === currentRoomExits.right?.y) {
+        if (nx >= ROOM_WIDTH && currentRoomExits.right) {
           if (roomX < BOARD_WIDTH - 1) {
             roomX += 1;
             nx = 0;
@@ -194,29 +182,21 @@ export default function Board() {
         }
 
         // UP
-        if (ny < 0 && nx === currentRoomExits.top?.x) {
+        if (ny < 0 && currentRoomExits.top) {
           if (roomY > 0) {
             roomY -= 1;
             ny = ROOM_HEIGHT - 1;
             nx = rooms[roomY][roomX].exits.bottom.x;
-          } else {
-            roomY = BOARD_HEIGHT - 1;
-            ny = ROOM_HEIGHT - 1;
-            nx = rooms[roomY][roomX].exits.bottom.x;
-          }
+          } else return prev;
         }
 
         // DOWN
-        if (ny >= ROOM_HEIGHT && nx === currentRoomExits.bottom?.x) {
+        if (ny >= ROOM_HEIGHT && currentRoomExits.bottom) {
           if (roomY < BOARD_HEIGHT - 1) {
             roomY += 1;
             ny = 0;
             nx = rooms[roomY][roomX].exits.top.x;
-          } else {
-            roomY = 0;
-            ny = 0;
-            nx = rooms[roomY][roomX].exits.top.x;
-          }
+          } else return prev;
         }
 
         const newRoom = rooms[roomY][roomX];
@@ -237,50 +217,45 @@ export default function Board() {
 
   return (
     <div className="board">
-      {rooms.map((row, ry) => (
-        <div key={ry} className="row">
-          {row.map((room, rx) => (
-            <div
-              key={rx}
-              className="room"
-              style={{
-                backgroundColor: room.discovered ? room.color : "#111",
-              }}
-            >
-              {room.discovered &&
-                room.tiles.map((row, y) =>
-                  row.map((tile, x) => {
-                    let isPlayer =
-                      player.roomX === rx &&
-                      player.roomY === ry &&
-                      player.x === x &&
-                      player.y === y;
-                    let isExit =
-                      (room.exits.left && room.exits.left.x === x && room.exits.left.y === y) ||
-                      (room.exits.right && room.exits.right.x === x && room.exits.right.y === y) ||
-                      (room.exits.top && room.exits.top.x === x && room.exits.top.y === y) ||
-                      (room.exits.bottom && room.exits.bottom.x === x && room.exits.bottom.y === y);
-                    return (
-                      <div
-                        key={x + "-" + y}
-                        className={
-                          "tile " +
-                          (isPlayer
-                            ? "player"
-                            : isExit
-                            ? "exit"
-                            : tile === "path"
-                            ? "path"
-                            : "wall")
-                        }
-                      />
+      {rooms.map((row, ry) =>
+        row.map((room, rx) => (
+          <div
+            key={`${rx}-${ry}`}
+            className="room"
+            style={{ backgroundColor: room.discovered ? room.color : "#111" }}
+          >
+            {room.discovered &&
+              room.tiles.map((r, y) =>
+                r.map((tile, x) => {
+                  const isPlayer =
+                    player.roomX === rx &&
+                    player.roomY === ry &&
+                    player.x === x &&
+                    player.y === y;
+                  const isExit =
+                    Object.values(room.exits).some(
+                      (e) => e.x === x && e.y === y
                     );
-                  })
-                )}
-            </div>
-          ))}
-        </div>
-      ))}
+                  return (
+                    <div
+                      key={`${x}-${y}`}
+                      className={
+                        "tile " +
+                        (isPlayer
+                          ? "player"
+                          : isExit
+                          ? "exit"
+                          : tile === "path"
+                          ? "path"
+                          : "wall")
+                      }
+                    />
+                  );
+                })
+              )}
+          </div>
+        ))
+      )}
     </div>
   );
 }
