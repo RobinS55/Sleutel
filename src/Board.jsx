@@ -7,7 +7,6 @@ const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
 const STEP_SIZE = 1;
 
-// pad carving
 function carvePath(tiles, ax, ay, bx, by) {
   let x = ax, y = ay;
   tiles[y][x] = "path";
@@ -23,7 +22,6 @@ function carvePath(tiles, ax, ay, bx, by) {
   }
 }
 
-// kamer genereren
 function generateRoom(x, y) {
   const tiles = Array.from({ length: ROOM_HEIGHT }, () =>
     Array.from({ length: ROOM_WIDTH }, () => "wall")
@@ -49,7 +47,6 @@ function generateRoom(x, y) {
     carvePath(tiles, exits[shuffled[0]].x, exits[shuffled[0]].y,
                      exits[shuffled[1]].x, exits[shuffled[1]].y);
 
-    // extra paden
     const extra = 1 + Math.floor(Math.random()*3);
     for (let i = 0; i < extra; i++) {
       const sx = Math.floor(Math.random()*ROOM_WIDTH);
@@ -82,16 +79,28 @@ export default function Board() {
     setBoard(newBoard);
   },[]);
 
-  // teken canvas
+  // canvas tekenen met scaling
   useEffect(()=>{
     const canvas = canvasRef.current;
     if(!canvas) return;
     const ctx = canvas.getContext("2d");
 
-    const totalWidth = BOARD_WIDTH*ROOM_WIDTH*TILE_SIZE;
-    const totalHeight = BOARD_HEIGHT*ROOM_HEIGHT*TILE_SIZE;
+    // viewport
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    const totalWidth = BOARD_WIDTH * ROOM_WIDTH * TILE_SIZE;
+    const totalHeight = BOARD_HEIGHT * ROOM_HEIGHT * TILE_SIZE;
+
     canvas.width = totalWidth;
     canvas.height = totalHeight;
+    canvas.style.width = `${vw}px`;
+    canvas.style.height = `${vh}px`;
+
+    const scaleX = vw / totalWidth;
+    const scaleY = vh / totalHeight;
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
 
     ctx.clearRect(0,0,totalWidth,totalHeight);
 
@@ -141,6 +150,7 @@ export default function Board() {
     ctx.fillStyle="red";
     ctx.fillRect(spX, spY, TILE_SIZE, TILE_SIZE);
 
+    ctx.restore();
   }, [board, playerPos, currentRoom, revealedRooms]);
 
   // controls
@@ -166,15 +176,12 @@ export default function Board() {
           let newRoomY=currentRoom.y;
           const oppositeDir = dir==="left"?"right":dir==="right"?"left":dir==="top"?"bottom":"top";
 
-          // wrap-around
           if(dir==="left") newRoomX = currentRoom.x>0? currentRoom.x-1 : BOARD_WIDTH-1;
           if(dir==="right") newRoomX = currentRoom.x<BOARD_WIDTH-1? currentRoom.x+1 : 0;
           if(dir==="top") newRoomY = currentRoom.y>0? currentRoom.y-1 : BOARD_HEIGHT-1;
           if(dir==="bottom") newRoomY = currentRoom.y<BOARD_HEIGHT-1? currentRoom.y+1 : 0;
 
           const newPos = {...board[newRoomY][newRoomX].exits[oppositeDir]};
-
-          // forceer path bij wrap-around
           if(board[newRoomY][newRoomX].tiles[newPos.y][newPos.x]==="wall")
             board[newRoomY][newRoomX].tiles[newPos.y][newPos.x]="path";
 
@@ -194,7 +201,7 @@ export default function Board() {
         setBoard([...board]);
       }
 
-      // teruggaan met Backspace
+      // teruggaan
       if(e.key==="Backspace" && roomHistory.length>0){
         const last = roomHistory[roomHistory.length-1];
         setCurrentRoom(last.room);
