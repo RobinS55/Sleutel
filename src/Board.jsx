@@ -39,8 +39,6 @@ function generateRoom(x, y) {
     tiles[0][0] = "path";
     carvePath(tiles, 0, 0, exits.right.x, exits.right.y);
     carvePath(tiles, 0, 0, exits.bottom.x, exits.bottom.y);
-    carvePath(tiles, Math.floor(ROOM_WIDTH/2), Math.floor(ROOM_HEIGHT/2),
-                     Math.floor(ROOM_WIDTH/2)+2, Math.floor(ROOM_HEIGHT/2));
   } else {
     const availableExits = Object.keys(exits).filter(dir => exits[dir]);
     const shuffled = availableExits.sort(() => Math.random()-0.5);
@@ -73,13 +71,11 @@ export default function Board() {
   const [revealedRooms, setRevealedRooms] = useState(new Set(["0,0"]));
   const [roomHistory, setRoomHistory] = useState([]);
 
-  // genereer bord
   useEffect(()=>{
     const newBoard = Array.from({ length: BOARD_HEIGHT }, (_,y)=>Array.from({ length: BOARD_WIDTH }, (_,x)=>generateRoom(x,y)));
     setBoard(newBoard);
   },[]);
 
-  // canvas tekenen met scaling
   useEffect(()=>{
     const canvas = canvasRef.current;
     if(!canvas) return;
@@ -112,11 +108,9 @@ export default function Board() {
         const roomOffsetX = bx*ROOM_WIDTH*TILE_SIZE;
         const roomOffsetY = by*ROOM_HEIGHT*TILE_SIZE;
 
-        // kamer achtergrond
         ctx.fillStyle = room.color;
         ctx.fillRect(roomOffsetX, roomOffsetY, ROOM_WIDTH*TILE_SIZE, ROOM_HEIGHT*TILE_SIZE);
 
-        // tiles
         for(let y=0;y<ROOM_HEIGHT;y++){
           for(let x=0;x<ROOM_WIDTH;x++){
             let color = "#222";
@@ -129,14 +123,26 @@ export default function Board() {
           }
         }
 
-        // highlight actieve kamer
+        // in/outgangen groen
+        for(const dir of ["left","right","top","bottom"]){
+          const exit = room.exits[dir];
+          if(exit){
+            ctx.fillStyle = "green";
+            ctx.fillRect(
+              roomOffsetX + exit.x*TILE_SIZE,
+              roomOffsetY + exit.y*TILE_SIZE,
+              TILE_SIZE,
+              TILE_SIZE
+            );
+          }
+        }
+
         if(bx===currentRoom.x && by===currentRoom.y){
           ctx.strokeStyle="#fff";
           ctx.lineWidth=4;
           ctx.strokeRect(roomOffsetX, roomOffsetY, ROOM_WIDTH*TILE_SIZE, ROOM_HEIGHT*TILE_SIZE);
         }
 
-        // onontdekte kamers donkerder overlay
         if(!revealedRooms.has(`${bx},${by}`)){
           ctx.fillStyle="rgba(0,0,0,0.5)";
           ctx.fillRect(roomOffsetX, roomOffsetY, ROOM_WIDTH*TILE_SIZE, ROOM_HEIGHT*TILE_SIZE);
@@ -144,7 +150,6 @@ export default function Board() {
       }
     }
 
-    // speler tekenen
     const spX = currentRoom.x*ROOM_WIDTH*TILE_SIZE + playerPos.x*TILE_SIZE;
     const spY = currentRoom.y*ROOM_HEIGHT*TILE_SIZE + playerPos.y*TILE_SIZE;
     ctx.fillStyle="red";
@@ -153,7 +158,6 @@ export default function Board() {
     ctx.restore();
   }, [board, playerPos, currentRoom, revealedRooms]);
 
-  // controls
   useEffect(()=>{
     function handleKey(e){
       const room = board[currentRoom.y][currentRoom.x];
@@ -185,7 +189,6 @@ export default function Board() {
           if(board[newRoomY][newRoomX].tiles[newPos.y][newPos.x]==="wall")
             board[newRoomY][newRoomX].tiles[newPos.y][newPos.x]="path";
 
-          // history bijhouden
           setRoomHistory(prev => [...prev, {room: currentRoom, pos: playerPos}]);
 
           setCurrentRoom({x:newRoomX,y:newRoomY});
@@ -194,14 +197,12 @@ export default function Board() {
         }
       }
 
-      // open locked paths
       if(e.key===" "){
         room.lockedPaths.forEach(p => room.tiles[p.y][p.x]="path");
         room.lockedPaths.length=0;
         setBoard([...board]);
       }
 
-      // teruggaan
       if(e.key==="Backspace" && roomHistory.length>0){
         const last = roomHistory[roomHistory.length-1];
         setCurrentRoom(last.room);
