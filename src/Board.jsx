@@ -4,8 +4,8 @@ const ROOM_WIDTH = 12;   // kamer 2x zo breed als hoog
 const ROOM_HEIGHT = 6;
 const TILE_SIZE = 40;
 
-const BOARD_WIDTH = 10;   // aantal kamers horizontaal
-const BOARD_HEIGHT = 10;  // aantal kamers verticaal
+const BOARD_WIDTH = 4;   // aantal kamers horizontaal
+const BOARD_HEIGHT = 4;  // aantal kamers verticaal
 
 function carvePath(tiles, x1, y1, x2, y2) {
   let x = x1;
@@ -37,16 +37,17 @@ function generateRoom(x, y) {
   };
 
   if (x === 0 && y === 0) {
-    // eerste kamer (startpunt)
+    // startkamer
     exits.left = null;
     exits.top = null;
     tiles[0][0] = "path";
     carvePath(tiles, 0, 0, exits.right.x, exits.right.y);
     carvePath(tiles, 0, 0, exits.bottom.x, exits.bottom.y);
   } else {
-    // kies 2 willekeurige exits en verbind ze
+    // kies minimaal 2 exits
     const availableExits = Object.keys(exits).filter((dir) => exits[dir]);
     const shuffled = availableExits.sort(() => Math.random() - 0.5);
+
     carvePath(
       tiles,
       exits[shuffled[0]].x,
@@ -55,8 +56,8 @@ function generateRoom(x, y) {
       exits[shuffled[1]].y
     );
 
-    // extra slingerpaden
-    const extraPaths = 1 + Math.floor(Math.random() * 3);
+    // meer paden, slingers en doodlopers
+    const extraPaths = 3 + Math.floor(Math.random() * 5); // 3-7 extra paden
     for (let i = 0; i < extraPaths; i++) {
       const sx = Math.floor(Math.random() * ROOM_WIDTH);
       const sy = Math.floor(Math.random() * ROOM_HEIGHT);
@@ -65,7 +66,7 @@ function generateRoom(x, y) {
       carvePath(tiles, sx, sy, ex, ey);
     }
 
-    // exits altijd vrijmaken
+    // exits altijd open
     for (const dir of ["left", "right", "top", "bottom"]) {
       if (exits[dir]) tiles[exits[dir].y][exits[dir].x] = "path";
     }
@@ -77,6 +78,7 @@ function generateRoom(x, y) {
     tiles,
     exits,
     color: `hsl(${Math.random() * 360}, 50%, 25%)`,
+    discovered: x === 0 && y === 0, // startkamer zichtbaar
   };
 }
 
@@ -108,7 +110,7 @@ export default function Board() {
         const newX = prev.x + dx;
         const newY = prev.y + dy;
 
-        // binnen kamer
+        // beweging binnen kamer
         if (
           newX >= 0 &&
           newX < ROOM_WIDTH &&
@@ -119,7 +121,7 @@ export default function Board() {
           return { ...prev, x: newX, y: newY };
         }
 
-        // check exits
+        // kamerwissel
         for (const [dir, exit] of Object.entries(currentRoom.exits)) {
           if (exit && prev.x === exit.x && prev.y === exit.y) {
             let newRoomX = prev.roomX;
@@ -135,9 +137,11 @@ export default function Board() {
               newRoom = generateRoom(newRoomX, newRoomY);
               setRooms((prevRooms) => {
                 const updated = new Map(prevRooms);
-                updated.set(newRoomKey, newRoom);
+                updated.set(newRoomKey, { ...newRoom, discovered: true });
                 return updated;
               });
+            } else {
+              newRoom.discovered = true;
             }
 
             let newPlayerPos = { x: exit.x, y: exit.y };
@@ -178,40 +182,42 @@ export default function Board() {
         BOARD_HEIGHT * ROOM_HEIGHT * TILE_SIZE
       }`}
     >
-      {Array.from(rooms.values()).map((room) => (
-        <g
-          key={`${room.x},${room.y}`}
-          transform={`translate(${room.x * ROOM_WIDTH * TILE_SIZE}, ${
-            room.y * ROOM_HEIGHT * TILE_SIZE
-          })`}
-        >
-          {room.tiles.map((row, y) =>
-            row.map((tile, x) => {
-              const isExit = Object.values(room.exits).some(
-                (e) => e && e.x === x && e.y === y
-              );
-              return (
-                <rect
-                  key={`${x},${y}`}
-                  x={x * TILE_SIZE}
-                  y={y * TILE_SIZE}
-                  width={TILE_SIZE}
-                  height={TILE_SIZE}
-                  fill={
-                    isExit
-                      ? "green"
-                      : tile === "wall"
-                      ? room.color
-                      : "black"
-                  }
-                  stroke="gray"
-                  strokeWidth={1}
-                />
-              );
-            })
-          )}
-        </g>
-      ))}
+      {Array.from(rooms.values()).map((room) =>
+        room.discovered ? (
+          <g
+            key={`${room.x},${room.y}`}
+            transform={`translate(${room.x * ROOM_WIDTH * TILE_SIZE}, ${
+              room.y * ROOM_HEIGHT * TILE_SIZE
+            })`}
+          >
+            {room.tiles.map((row, y) =>
+              row.map((tile, x) => {
+                const isExit = Object.values(room.exits).some(
+                  (e) => e && e.x === x && e.y === y
+                );
+                return (
+                  <rect
+                    key={`${x},${y}`}
+                    x={x * TILE_SIZE}
+                    y={y * TILE_SIZE}
+                    width={TILE_SIZE}
+                    height={TILE_SIZE}
+                    fill={
+                      isExit
+                        ? "green"
+                        : tile === "wall"
+                        ? room.color
+                        : "black"
+                    }
+                    stroke="gray"
+                    strokeWidth={1}
+                  />
+                );
+              })
+            )}
+          </g>
+        ) : null
+      )}
 
       {activeRoom && (
         <rect
