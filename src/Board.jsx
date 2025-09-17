@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 
-const ROOM_WIDTH = 20;
-const ROOM_HEIGHT = 10;
-const TILE_SIZE = 30;
-const BOARD_WIDTH = 4;
-const BOARD_HEIGHT = 4;
-const STEP_SIZE = 1;
+const ROOM_WIDTH = 20;   // breedte kamer in vakjes
+const ROOM_HEIGHT = 10;  // hoogte kamer in vakjes
+const TILE_SIZE = 30;    // grootte van een vakje
+const BOARD_WIDTH = 4;   // aantal kamers horizontaal
+const BOARD_HEIGHT = 4;  // aantal kamers verticaal
+const STEP_SIZE = 1;     // stappen waarmee speler beweegt
 
 function carvePath(tiles, ax, ay, bx, by) {
   // slingeren: stap voor stap horizontaal/verticaal random
@@ -40,53 +40,67 @@ function generateRoom(x, y, board) {
     bottom: { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 },
   };
 
-  // Speciale regel: eerste kamer heeft alleen rechts en onder open
+  // Speciale regels voor de startkamer (0,0)
   if (x === 0 && y === 0) {
     exits.left = null;
     exits.top = null;
-  }
 
-  // verbind met buurkamers zodat je terug kan
-  if (x > 0 && board[y][x - 1]?.exits.right) {
-    exits.left = { ...exits.left };
-  }
-  if (y > 0 && board[y - 1][x]?.exits.bottom) {
-    exits.top = { ...exits.top };
-  }
+    // startpunt linksboven
+    const startX = 0;
+    const startY = 0;
+    tiles[startY][startX] = "path";
 
-  // kies altijd minimaal 2 exits om een pad te maken
-  const validExits = Object.values(exits).filter(Boolean);
-  if (validExits.length >= 2) {
-    const e1 = validExits[0];
-    const e2 = validExits[1];
-    carvePath(tiles, e1.x, e1.y, e2.x, e2.y);
-  }
+    // verbind naar rechts-exit
+    carvePath(tiles, startX, startY, exits.right.x, exits.right.y);
 
-  // open exits zelf
-  for (const dir of ["left", "right", "top", "bottom"]) {
-    if (exits[dir]) {
-      tiles[exits[dir].y][exits[dir].x] = "path";
+    // verbind naar beneden-exit
+    carvePath(tiles, startX, startY, exits.bottom.x, exits.bottom.y);
+
+    // kruising toevoegen (T-splitsing effect in het midden)
+    tiles[Math.floor(ROOM_HEIGHT / 2)][Math.floor(ROOM_WIDTH / 2)] = "path";
+  } else {
+    // standaard kamers
+    if (x > 0 && board[y][x - 1]?.exits.right) {
+      exits.left = { ...exits.left };
     }
-  }
+    if (y > 0 && board[y - 1][x]?.exits.bottom) {
+      exits.top = { ...exits.top };
+    }
 
-  // extra doodlopende slingerpaden
-  for (let i = 0; i < 2; i++) {
-    const px = Math.floor(Math.random() * ROOM_WIDTH);
-    const py = Math.floor(Math.random() * ROOM_HEIGHT);
-    if (tiles[py][px] === "path") {
-      let len = Math.floor(Math.random() * 6) + 3;
-      let nx = px;
-      let ny = py;
-      while (
-        len-- > 0 &&
-        nx > 1 &&
-        ny > 1 &&
-        nx < ROOM_WIDTH - 2 &&
-        ny < ROOM_HEIGHT - 2
-      ) {
-        tiles[ny][nx] = "path";
-        if (Math.random() < 0.5) nx += Math.random() < 0.5 ? 1 : -1;
-        else ny += Math.random() < 0.5 ? 1 : -1;
+    // kies minimaal 2 exits
+    const validExits = Object.values(exits).filter(Boolean);
+    if (validExits.length >= 2) {
+      const e1 = validExits[0];
+      const e2 = validExits[1];
+      carvePath(tiles, e1.x, e1.y, e2.x, e2.y);
+    }
+
+    // open exits zelf
+    for (const dir of ["left", "right", "top", "bottom"]) {
+      if (exits[dir]) {
+        tiles[exits[dir].y][exits[dir].x] = "path";
+      }
+    }
+
+    // extra doodlopende slingerpaden
+    for (let i = 0; i < 2; i++) {
+      const px = Math.floor(Math.random() * ROOM_WIDTH);
+      const py = Math.floor(Math.random() * ROOM_HEIGHT);
+      if (tiles[py][px] === "path") {
+        let len = Math.floor(Math.random() * 6) + 3;
+        let nx = px;
+        let ny = py;
+        while (
+          len-- > 0 &&
+          nx > 1 &&
+          ny > 1 &&
+          nx < ROOM_WIDTH - 2 &&
+          ny < ROOM_HEIGHT - 2
+        ) {
+          tiles[ny][nx] = "path";
+          if (Math.random() < 0.5) nx += Math.random() < 0.5 ? 1 : -1;
+          else ny += Math.random() < 0.5 ? 1 : -1;
+        }
       }
     }
   }
@@ -102,7 +116,7 @@ export default function Board() {
     )
   );
 
-  // vul board met kamers die elkaar kennen
+  // vul board met kamers
   useEffect(() => {
     const newBoard = Array.from({ length: BOARD_HEIGHT }, (_, y) =>
       Array.from({ length: BOARD_WIDTH }, (_, x) => null)
@@ -116,7 +130,7 @@ export default function Board() {
   }, []);
 
   const [currentRoom, setCurrentRoom] = useState({ x: 0, y: 0 });
-  const [playerPos, setPlayerPos] = useState({ x: 1, y: 1 });
+  const [playerPos, setPlayerPos] = useState({ x: 0, y: 0 }); // speler start linksboven
   const [revealedRooms, setRevealedRooms] = useState(new Set(["0,0"]));
 
   // tekenen: altijd hele kamer
