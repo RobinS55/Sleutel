@@ -7,7 +7,7 @@ const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
 const STEP_SIZE = 1;
 
-// carve path tussen twee punten
+// pad carving
 function carvePath(tiles, ax, ay, bx, by) {
   let x = ax, y = ay;
   tiles[y][x] = "path";
@@ -23,7 +23,7 @@ function carvePath(tiles, ax, ay, bx, by) {
   }
 }
 
-// genereer kamer met meerdere paden
+// kamer genereren
 function generateRoom(x, y) {
   const tiles = Array.from({ length: ROOM_HEIGHT }, () =>
     Array.from({ length: ROOM_WIDTH }, () => "wall")
@@ -36,7 +36,7 @@ function generateRoom(x, y) {
   };
   const lockedPaths = [];
 
-  if (x === 0 && y === 0) { // startkamer linksboven
+  if (x === 0 && y === 0) {
     exits.left = null; exits.top = null;
     tiles[0][0] = "path";
     carvePath(tiles, 0, 0, exits.right.x, exits.right.y);
@@ -59,15 +59,6 @@ function generateRoom(x, y) {
       carvePath(tiles, sx, sy, ex, ey);
     }
 
-    // locked zijpaden
-    for (let i=0;i<2;i++){
-      if(Math.random()<0.5){
-        const lx = Math.floor(Math.random()*ROOM_WIDTH);
-        const ly = Math.floor(Math.random()*ROOM_HEIGHT);
-        if(tiles[ly][lx]==="wall"){ tiles[ly][lx]="locked"; lockedPaths.push({x:lx,y:ly}); }
-      }
-    }
-
     for(const dir of ["left","right","top","bottom"]){
       if(exits[dir]) tiles[exits[dir].y][exits[dir].x] = "path";
     }
@@ -78,18 +69,20 @@ function generateRoom(x, y) {
 
 export default function Board() {
   const canvasRef = useRef(null);
-  const [board, setBoard] = useState(Array.from({ length: BOARD_HEIGHT }, ()=>Array.from({ length: BOARD_WIDTH }, ()=>null)));
 
+  const [board, setBoard] = useState(Array.from({ length: BOARD_HEIGHT }, ()=>Array.from({ length: BOARD_WIDTH }, ()=>null)));
+  const [currentRoom, setCurrentRoom] = useState({x:0,y:0});
+  const [playerPos, setPlayerPos] = useState({x:0,y:0});
+  const [revealedRooms, setRevealedRooms] = useState(new Set(["0,0"]));
+  const [roomHistory, setRoomHistory] = useState([]);
+
+  // genereer bord
   useEffect(()=>{
     const newBoard = Array.from({ length: BOARD_HEIGHT }, (_,y)=>Array.from({ length: BOARD_WIDTH }, (_,x)=>generateRoom(x,y)));
     setBoard(newBoard);
   },[]);
 
-  const [currentRoom, setCurrentRoom] = useState({x:0,y:0});
-  const [playerPos, setPlayerPos] = useState({x:0,y:0});
-  const [revealedRooms, setRevealedRooms] = useState(new Set(["0,0"]));
-
-  // canvas tekenen
+  // teken canvas
   useEffect(()=>{
     const canvas = canvasRef.current;
     if(!canvas) return;
@@ -99,9 +92,9 @@ export default function Board() {
     const totalHeight = BOARD_HEIGHT*ROOM_HEIGHT*TILE_SIZE;
     canvas.width = totalWidth;
     canvas.height = totalHeight;
+
     ctx.clearRect(0,0,totalWidth,totalHeight);
 
-    // alle kamers tekenen
     for(let by=0;by<BOARD_HEIGHT;by++){
       for(let bx=0;bx<BOARD_WIDTH;bx++){
         const room = board[by][bx];
@@ -119,11 +112,6 @@ export default function Board() {
           for(let x=0;x<ROOM_WIDTH;x++){
             let color = "#222";
             if(room.tiles[y][x]==="path") color="#ccc";
-            if(room.tiles[y][x]==="locked") color="#888";
-            for(const dir of ["left","right","top","bottom"]){
-              const exit = room.exits[dir];
-              if(exit && exit.x===x && exit.y===y) color="#0f0";
-            }
             ctx.fillStyle=color;
             ctx.beginPath();
             ctx.arc(roomOffsetX + x*TILE_SIZE + TILE_SIZE/2, roomOffsetY + y*TILE_SIZE + TILE_SIZE/2,
@@ -137,6 +125,12 @@ export default function Board() {
           ctx.strokeStyle="#fff";
           ctx.lineWidth=4;
           ctx.strokeRect(roomOffsetX, roomOffsetY, ROOM_WIDTH*TILE_SIZE, ROOM_HEIGHT*TILE_SIZE);
+        }
+
+        // onontdekte kamers donkerder overlay
+        if(!revealedRooms.has(`${bx},${by}`)){
+          ctx.fillStyle="rgba(0,0,0,0.5)";
+          ctx.fillRect(roomOffsetX, roomOffsetY, ROOM_WIDTH*TILE_SIZE, ROOM_HEIGHT*TILE_SIZE);
         }
       }
     }
@@ -165,25 +159,27 @@ export default function Board() {
       if(room.tiles[y][x]==="wall") return;
       setPlayerPos({x,y});
 
-      // kameruitgangen
       for(const dir of ["left","right","top","bottom"]){
         const exit = room.exits[dir];
         if(exit && exit.x===x && exit.y===y){
           let newRoomX=currentRoom.x;
           let newRoomY=currentRoom.y;
-          let newPos={x:0,y:0};
           const oppositeDir = dir==="left"?"right":dir==="right"?"left":dir==="top"?"bottom":"top";
 
+          // wrap-around
           if(dir==="left") newRoomX = currentRoom.x>0? currentRoom.x-1 : BOARD_WIDTH-1;
           if(dir==="right") newRoomX = currentRoom.x<BOARD_WIDTH-1? currentRoom.x+1 : 0;
           if(dir==="top") newRoomY = currentRoom.y>0? currentRoom.y-1 : BOARD_HEIGHT-1;
           if(dir==="bottom") newRoomY = currentRoom.y<BOARD_HEIGHT-1? currentRoom.y+1 : 0;
 
-          newPos = {...board[newRoomY][newRoomX].exits[oppositeDir]};
+          const newPos = {...board[newRoomY][newRoomX].exits[oppositeDir]};
 
-          // forceer path bij wrap
+          // forceer path bij wrap-around
           if(board[newRoomY][newRoomX].tiles[newPos.y][newPos.x]==="wall")
             board[newRoomY][newRoomX].tiles[newPos.y][newPos.x]="path";
+
+          // history bijhouden
+          setRoomHistory(prev => [...prev, {room: currentRoom, pos: playerPos}]);
 
           setCurrentRoom({x:newRoomX,y:newRoomY});
           setPlayerPos(newPos);
@@ -197,10 +193,18 @@ export default function Board() {
         room.lockedPaths.length=0;
         setBoard([...board]);
       }
+
+      // teruggaan met Backspace
+      if(e.key==="Backspace" && roomHistory.length>0){
+        const last = roomHistory[roomHistory.length-1];
+        setCurrentRoom(last.room);
+        setPlayerPos(last.pos);
+        setRoomHistory(prev => prev.slice(0,-1));
+      }
     }
     window.addEventListener("keydown", handleKey);
     return ()=>window.removeEventListener("keydown", handleKey);
-  }, [playerPos,currentRoom,board]);
+  }, [playerPos,currentRoom,board,roomHistory]);
 
-  return <canvas ref={canvasRef}/>;
+  return <canvas ref={canvasRef} style={{display:"block"}} />;
 }
