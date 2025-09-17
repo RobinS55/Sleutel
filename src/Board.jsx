@@ -35,40 +35,41 @@ function generateRoom(x, y) {
     bottom: { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 },
   };
 
-  // eerste kamer (0,0) → altijd pad naar rechts en beneden
   if (x === 0 && y === 0) {
+    // Eerste kamer: startpunt linksboven
     tiles[0][0] = "path";
     carvePath(tiles, 0, 0, exits.right.x, exits.right.y);
     carvePath(tiles, 0, 0, exits.bottom.x, exits.bottom.y);
-  } else {
-    const availableExits = Object.keys(exits);
-    const shuffled = availableExits.sort(() => Math.random() - 0.5);
+    tiles[exits.right.y][exits.right.x] = "path";
+    tiles[exits.bottom.y][exits.bottom.x] = "path";
 
-    if (shuffled.length >= 2) {
-      carvePath(
-        tiles,
-        exits[shuffled[0]].x,
-        exits[shuffled[0]].y,
-        exits[shuffled[1]].x,
-        exits[shuffled[1]].y
-      );
-    }
+    return {
+      x,
+      y,
+      tiles,
+      exits,
+      color: `hsl(${Math.random() * 360},50%,25%)`,
+      discovered: true,
+    };
+  }
 
-    // extra paden
-    const extraPaths = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < extraPaths; i++) {
-      const chosenExit = exits[shuffled[i % shuffled.length]];
-      if (chosenExit) {
-        const ex = Math.floor(Math.random() * ROOM_WIDTH);
-        const ey = Math.floor(Math.random() * ROOM_HEIGHT);
-        carvePath(tiles, chosenExit.x, chosenExit.y, ex, ey);
-      }
-    }
+  // Andere kamers: altijd 4 uitgangen
+  const exitKeys = ["left", "right", "top", "bottom"];
+  // minstens 2 verbonden
+  const [exit1, exit2] = exitKeys.sort(() => Math.random() - 0.5);
+  carvePath(tiles, exits[exit1].x, exits[exit1].y, exits[exit2].x, exits[exit2].y);
 
-    // exits zelf altijd zichtbaar
-    for (const dir of ["left", "right", "top", "bottom"]) {
-      tiles[exits[dir].y][exits[dir].x] = "path";
-    }
+  const extraPaths = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < extraPaths; i++) {
+    const ex = Math.floor(Math.random() * ROOM_WIDTH);
+    const ey = Math.floor(Math.random() * ROOM_HEIGHT);
+    const chosenExit = exits[exitKeys[i % exitKeys.length]];
+    carvePath(tiles, chosenExit.x, chosenExit.y, ex, ey);
+  }
+
+  // Alle 4 exits altijd zichtbaar
+  for (const dir of exitKeys) {
+    tiles[exits[dir].y][exits[dir].x] = "path";
   }
 
   return {
@@ -76,9 +77,30 @@ function generateRoom(x, y) {
     y,
     tiles,
     exits,
-    color: `hsl(${Math.random() * 360}, 50%, 25%)`,
-    discovered: x === 0 && y === 0,
+    color: `hsl(${Math.random() * 360},50%,25%)`,
+    discovered: false,
   };
+}
+
+function rotateRoom180(room) {
+  const newTiles = Array.from({ length: ROOM_HEIGHT }, () =>
+    Array.from({ length: ROOM_WIDTH }, () => "wall")
+  );
+
+  for (let y = 0; y < ROOM_HEIGHT; y++) {
+    for (let x = 0; x < ROOM_WIDTH; x++) {
+      newTiles[ROOM_HEIGHT - 1 - y][ROOM_WIDTH - 1 - x] = room.tiles[y][x];
+    }
+  }
+
+  const newExits = {
+    left: { x: 0, y: ROOM_HEIGHT - 1 - room.exits.right.y },
+    right: { x: ROOM_WIDTH - 1, y: ROOM_HEIGHT - 1 - room.exits.left.y },
+    top: { x: ROOM_WIDTH - 1 - room.exits.bottom.x, y: 0 },
+    bottom: { x: ROOM_WIDTH - 1 - room.exits.top.x, y: ROOM_HEIGHT - 1 },
+  };
+
+  return { ...room, tiles: newTiles, exits: newExits };
 }
 
 export default function Board() {
@@ -99,6 +121,20 @@ export default function Board() {
 
   useEffect(() => {
     function handleKey(e) {
+      if (e.key === "r" || e.key === "R") {
+        setRooms((prevRooms) => {
+          const updated = [...prevRooms];
+          const current = updated[player.roomY][player.roomX];
+          const rotated = rotateRoom180(current);
+          const newX = ROOM_WIDTH - 1 - player.x;
+          const newY = ROOM_HEIGHT - 1 - player.y;
+          updated[player.roomY][player.roomX] = rotated;
+          setPlayer({ ...player, x: newX, y: newY });
+          return updated;
+        });
+        return;
+      }
+
       setPlayer((prev) => {
         const room = rooms[prev.roomY]?.[prev.roomX];
         if (!room) return prev;
@@ -113,56 +149,49 @@ export default function Board() {
         if (e.key === "ArrowLeft") nx--;
         if (e.key === "ArrowRight") nx++;
 
-        // kamer wissel checks
+        // kamer wissel
         if (ny < 0 && nx === room.exits.top.x) {
           if (roomY > 0) {
-            roomY = roomY - 1;
+            roomY -= 1;
             ny = ROOM_HEIGHT - 1;
             nx = rooms[roomY][roomX].exits.bottom.x;
-          } else {
-            return prev; // bovenste rand blokkeren
-          }
+          } else return prev;
         }
         if (ny >= ROOM_HEIGHT && nx === room.exits.bottom.x) {
           if (roomY < BOARD_HEIGHT - 1) {
-            roomY = roomY + 1;
+            roomY += 1;
             ny = 0;
             nx = rooms[roomY][roomX].exits.top.x;
-          } else {
-            return prev; // onderste rand blokkeren
-          }
+          } else return prev;
         }
         if (nx < 0 && ny === room.exits.left.y) {
           if (roomX > 0) {
-            roomX = roomX - 1;
+            roomX -= 1;
             nx = ROOM_WIDTH - 1;
             ny = rooms[roomY][roomX].exits.right.y;
-          } else {
-            return prev; // linker rand blokkeren
-          }
+          } else return prev;
         }
         if (nx >= ROOM_WIDTH && ny === room.exits.right.y) {
           if (roomX < BOARD_WIDTH - 1) {
-            roomX = roomX + 1;
+            roomX += 1;
             nx = 0;
             ny = rooms[roomY][roomX].exits.left.y;
-          } else {
-            return prev; // rechter rand blokkeren
-          }
+          } else return prev;
         }
 
         const newRoom = rooms[roomY][roomX];
         if (newRoom.tiles[ny]?.[nx] === "path") {
-          rooms[roomY][roomX].discovered = true;
+          newRoom.discovered = true;
           setRooms([...rooms]);
           return { roomX, roomY, x: nx, y: ny };
         }
         return prev;
       });
     }
+
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [rooms]);
+  }, [rooms, player]);
 
   if (rooms.length === 0) return <div>Loading...</div>;
 
@@ -187,18 +216,10 @@ export default function Board() {
                       player.x === x &&
                       player.y === y;
                     let isExit =
-                      (room.exits.left &&
-                        room.exits.left.x === x &&
-                        room.exits.left.y === y) ||
-                      (room.exits.right &&
-                        room.exits.right.x === x &&
-                        room.exits.right.y === y) ||
-                      (room.exits.top &&
-                        room.exits.top.x === x &&
-                        room.exits.top.y === y) ||
-                      (room.exits.bottom &&
-                        room.exits.bottom.x === x &&
-                        room.exits.bottom.y === y);
+                      (room.exits.left.x === x && room.exits.left.y === y) ||
+                      (room.exits.right.x === x && room.exits.right.y === y) ||
+                      (room.exits.top.x === x && room.exits.top.y === y) ||
+                      (room.exits.bottom.x === x && room.exits.bottom.y === y);
                     return (
                       <div
                         key={x + "-" + y}
