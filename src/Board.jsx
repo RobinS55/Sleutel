@@ -35,37 +35,13 @@ function generateRoom(x, y) {
     bottom: { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 },
   };
 
-  // 🟢 Hoek-correcties
-  if (x === 0 && y === 0) {
-    exits.left = null;
-    exits.top = null;
-  }
-  if (x === BOARD_WIDTH - 1 && y === 0) {
-    exits.right = null;
-    exits.top = null;
-  }
-  if (x === 0 && y === BOARD_HEIGHT - 1) {
-    exits.left = null;
-    exits.bottom = null; // ❌ onderuitgang uitschakelen in linksonder
-  }
-  if (x === BOARD_WIDTH - 1 && y === BOARD_HEIGHT - 1) {
-    exits.right = null;
-    exits.bottom = null;
-  }
-
-  // 🟢 Rand-correcties
-  if (y === BOARD_HEIGHT - 1) exits.bottom = null; // onderste rij → geen onderuitgang
-  if (y === 0) exits.top = null; // bovenste rij → geen bovenuitgang
-  if (x === 0) exits.left = null; // linker kolom → geen linkeruitgang
-  if (x === BOARD_WIDTH - 1) exits.right = null; // rechter kolom → geen rechteruitgang
-
-  // eerste kamer moet een pad hebben naar rechts en beneden
+  // eerste kamer (0,0) → altijd pad naar rechts en beneden
   if (x === 0 && y === 0) {
     tiles[0][0] = "path";
     carvePath(tiles, 0, 0, exits.right.x, exits.right.y);
     carvePath(tiles, 0, 0, exits.bottom.x, exits.bottom.y);
   } else {
-    const availableExits = Object.keys(exits).filter((dir) => exits[dir]);
+    const availableExits = Object.keys(exits);
     const shuffled = availableExits.sort(() => Math.random() - 0.5);
 
     if (shuffled.length >= 2) {
@@ -78,11 +54,10 @@ function generateRoom(x, y) {
       );
     }
 
-    // extra paden die verbonden blijven
+    // extra paden
     const extraPaths = 2 + Math.floor(Math.random() * 3);
     for (let i = 0; i < extraPaths; i++) {
-      const chosenExit =
-        exits[availableExits[Math.floor(Math.random() * availableExits.length)]];
+      const chosenExit = exits[shuffled[i % shuffled.length]];
       if (chosenExit) {
         const ex = Math.floor(Math.random() * ROOM_WIDTH);
         const ey = Math.floor(Math.random() * ROOM_HEIGHT);
@@ -90,9 +65,9 @@ function generateRoom(x, y) {
       }
     }
 
-    // exits zelf groen maken
+    // exits zelf altijd zichtbaar
     for (const dir of ["left", "right", "top", "bottom"]) {
-      if (exits[dir]) tiles[exits[dir].y][exits[dir].x] = "path";
+      tiles[exits[dir].y][exits[dir].x] = "path";
     }
   }
 
@@ -139,25 +114,41 @@ export default function Board() {
         if (e.key === "ArrowRight") nx++;
 
         // kamer wissel checks
-        if (ny < 0 && room.exits.top && nx === room.exits.top.x) {
-          roomY = (roomY - 1 + BOARD_HEIGHT) % BOARD_HEIGHT;
-          ny = ROOM_HEIGHT - 1;
-          nx = rooms[roomY][roomX].exits.bottom.x;
+        if (ny < 0 && nx === room.exits.top.x) {
+          if (roomY > 0) {
+            roomY = roomY - 1;
+            ny = ROOM_HEIGHT - 1;
+            nx = rooms[roomY][roomX].exits.bottom.x;
+          } else {
+            return prev; // bovenste rand blokkeren
+          }
         }
-        if (ny >= ROOM_HEIGHT && room.exits.bottom && nx === room.exits.bottom.x) {
-          roomY = (roomY + 1) % BOARD_HEIGHT;
-          ny = 0;
-          nx = rooms[roomY][roomX].exits.top.x;
+        if (ny >= ROOM_HEIGHT && nx === room.exits.bottom.x) {
+          if (roomY < BOARD_HEIGHT - 1) {
+            roomY = roomY + 1;
+            ny = 0;
+            nx = rooms[roomY][roomX].exits.top.x;
+          } else {
+            return prev; // onderste rand blokkeren
+          }
         }
-        if (nx < 0 && room.exits.left && ny === room.exits.left.y) {
-          roomX = (roomX - 1 + BOARD_WIDTH) % BOARD_WIDTH;
-          nx = ROOM_WIDTH - 1;
-          ny = rooms[roomY][roomX].exits.right.y;
+        if (nx < 0 && ny === room.exits.left.y) {
+          if (roomX > 0) {
+            roomX = roomX - 1;
+            nx = ROOM_WIDTH - 1;
+            ny = rooms[roomY][roomX].exits.right.y;
+          } else {
+            return prev; // linker rand blokkeren
+          }
         }
-        if (nx >= ROOM_WIDTH && room.exits.right && ny === room.exits.right.y) {
-          roomX = (roomX + 1) % BOARD_WIDTH;
-          nx = 0;
-          ny = rooms[roomY][roomX].exits.left.y;
+        if (nx >= ROOM_WIDTH && ny === room.exits.right.y) {
+          if (roomX < BOARD_WIDTH - 1) {
+            roomX = roomX + 1;
+            nx = 0;
+            ny = rooms[roomY][roomX].exits.left.y;
+          } else {
+            return prev; // rechter rand blokkeren
+          }
         }
 
         const newRoom = rooms[roomY][roomX];
