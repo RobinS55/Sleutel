@@ -1,9 +1,10 @@
 .board {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 2px;
+  gap: 4px;
   background: #222;
   overflow: hidden; /* verwijdert scrollbars */
+  padding: 4px;
 }
 
 .room {
