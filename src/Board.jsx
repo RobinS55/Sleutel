@@ -4,10 +4,10 @@ import "./Board.css";
 
 const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
-// Oneven afmetingen voor perfecte middens
-const ROOM_WIDTH = 13;
-const ROOM_HEIGHT = 7;
+const ROOM_WIDTH = 13;  // oneven voor middens
+const ROOM_HEIGHT = 7;  // oneven voor middens
 
+// Carve een pad van start naar end
 function carvePath(tiles, x1, y1, x2, y2) {
   let x = x1;
   let y = y1;
@@ -21,6 +21,26 @@ function carvePath(tiles, x1, y1, x2, y2) {
       else if (y > y2) y--;
     }
     tiles[y][x] = "path";
+  }
+}
+
+// Voeg willekeurige zijpaden toe zonder het hoofdpad te verbreken
+function addSidePaths(tiles, paths = 2) {
+  for (let i = 0; i < paths; i++) {
+    let startX = Math.floor(Math.random() * ROOM_WIDTH);
+    let startY = Math.floor(Math.random() * ROOM_HEIGHT);
+    if (tiles[startY][startX] !== "path") continue; // begin op hoofdpad
+    let length = 1 + Math.floor(Math.random() * 3);
+    let x = startX;
+    let y = startY;
+    for (let j = 0; j < length; j++) {
+      let dir = Math.floor(Math.random() * 4);
+      if (dir === 0 && x > 0) x--;
+      if (dir === 1 && x < ROOM_WIDTH - 1) x++;
+      if (dir === 2 && y > 0) y--;
+      if (dir === 3 && y < ROOM_HEIGHT - 1) y++;
+      if (tiles[y][x] === "wall") tiles[y][x] = "path";
+    }
   }
 }
 
@@ -38,13 +58,10 @@ function generateRoom(x, y) {
   };
 
   if (x === 0 && y === 0) {
-    // Eerste kamer: startpunt linksboven
-    tiles[0][0] = "path";
+    // Startkamer: linksboven, alleen rechts en beneden
     carvePath(tiles, 0, 0, exits.right.x, exits.right.y);
     carvePath(tiles, 0, 0, exits.bottom.x, exits.bottom.y);
-    tiles[exits.right.y][exits.right.x] = "path";
-    tiles[exits.bottom.y][exits.bottom.x] = "path";
-
+    addSidePaths(tiles, 2);
     return {
       x,
       y,
@@ -61,15 +78,9 @@ function generateRoom(x, y) {
   const [exit1, exit2] = exitKeys.sort(() => Math.random() - 0.5);
   carvePath(tiles, exits[exit1].x, exits[exit1].y, exits[exit2].x, exits[exit2].y);
 
-  const extraPaths = 2 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < extraPaths; i++) {
-    const ex = Math.floor(Math.random() * ROOM_WIDTH);
-    const ey = Math.floor(Math.random() * ROOM_HEIGHT);
-    const chosenExit = exits[exitKeys[i % exitKeys.length]];
-    carvePath(tiles, chosenExit.x, chosenExit.y, ex, ey);
-  }
+  addSidePaths(tiles, 2);
 
-  // Alle 4 exits altijd zichtbaar
+  // Zorg dat alle uitgangen path zijn
   for (const dir of exitKeys) {
     tiles[exits[dir].y][exits[dir].x] = "path";
   }
@@ -86,7 +97,7 @@ function generateRoom(x, y) {
 }
 
 function rotateRoom180(room) {
-  if (room.isStart) return room; // Startkamer nooit draaien
+  if (room.isStart) return room;
 
   const newTiles = Array.from({ length: ROOM_HEIGHT }, () =>
     Array.from({ length: ROOM_WIDTH }, () => "wall")
@@ -166,7 +177,7 @@ export default function Board() {
             roomX = BOARD_WIDTH - 1;
             nx = ROOM_WIDTH - 1;
             ny = rooms[roomY][roomX].exits.right.y;
-          } else return prev; // linksonder geen linkeruitgang
+          } else return prev;
         }
 
         // RIGHT
@@ -179,7 +190,7 @@ export default function Board() {
             roomX = 0;
             nx = 0;
             ny = rooms[roomY][roomX].exits.left.y;
-          } else return prev; // rechtsboven geen rechteruitgang
+          } else return prev;
         }
 
         // UP
