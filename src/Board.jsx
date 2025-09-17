@@ -55,7 +55,6 @@ function generateRoom(x, y) {
 
   // Andere kamers: altijd 4 uitgangen
   const exitKeys = ["left", "right", "top", "bottom"];
-  // minstens 2 verbonden
   const [exit1, exit2] = exitKeys.sort(() => Math.random() - 0.5);
   carvePath(tiles, exits[exit1].x, exits[exit1].y, exits[exit2].x, exits[exit2].y);
 
@@ -149,34 +148,57 @@ export default function Board() {
         if (e.key === "ArrowLeft") nx--;
         if (e.key === "ArrowRight") nx++;
 
-        // kamer wissel
-        if (ny < 0 && nx === room.exits.top.x) {
-          if (roomY > 0) {
-            roomY -= 1;
-            ny = ROOM_HEIGHT - 1;
-            nx = rooms[roomY][roomX].exits.bottom.x;
-          } else return prev;
-        }
-        if (ny >= ROOM_HEIGHT && nx === room.exits.bottom.x) {
-          if (roomY < BOARD_HEIGHT - 1) {
-            roomY += 1;
-            ny = 0;
-            nx = rooms[roomY][roomX].exits.top.x;
-          } else return prev;
-        }
+        // Kamer wissel met wrap-around
+        // LEFT
         if (nx < 0 && ny === room.exits.left.y) {
           if (roomX > 0) {
             roomX -= 1;
             nx = ROOM_WIDTH - 1;
             ny = rooms[roomY][roomX].exits.right.y;
-          } else return prev;
+          } else if (!(roomX === 0 && roomY === BOARD_HEIGHT - 1)) {
+            roomX = BOARD_WIDTH - 1;
+            nx = ROOM_WIDTH - 1;
+            ny = rooms[roomY][roomX].exits.right.y;
+          } else return prev; // linksonder geen linkeruitgang
         }
+
+        // RIGHT
         if (nx >= ROOM_WIDTH && ny === room.exits.right.y) {
           if (roomX < BOARD_WIDTH - 1) {
             roomX += 1;
             nx = 0;
             ny = rooms[roomY][roomX].exits.left.y;
-          } else return prev;
+          } else if (!(roomX === BOARD_WIDTH - 1 && roomY === 0)) {
+            roomX = 0;
+            nx = 0;
+            ny = rooms[roomY][roomX].exits.left.y;
+          } else return prev; // rechtsboven geen rechteruitgang
+        }
+
+        // UP
+        if (ny < 0 && nx === room.exits.top.x) {
+          if (roomY > 0) {
+            roomY -= 1;
+            ny = ROOM_HEIGHT - 1;
+            nx = rooms[roomY][roomX].exits.bottom.x;
+          } else {
+            roomY = BOARD_HEIGHT - 1;
+            ny = ROOM_HEIGHT - 1;
+            nx = rooms[roomY][roomX].exits.bottom.x;
+          }
+        }
+
+        // DOWN
+        if (ny >= ROOM_HEIGHT && nx === room.exits.bottom.x) {
+          if (roomY < BOARD_HEIGHT - 1) {
+            roomY += 1;
+            ny = 0;
+            nx = rooms[roomY][roomX].exits.top.x;
+          } else {
+            roomY = 0;
+            ny = 0;
+            nx = rooms[roomY][roomX].exits.top.x;
+          }
         }
 
         const newRoom = rooms[roomY][roomX];
