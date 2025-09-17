@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 
-const ROOM_WIDTH = 12;   // kamer 2x zo breed als hoog
+const ROOM_WIDTH = 12;
 const ROOM_HEIGHT = 6;
 const TILE_SIZE = 40;
 
-const BOARD_WIDTH = 4;   // aantal kamers horizontaal
-const BOARD_HEIGHT = 4;  // aantal kamers verticaal
+const BOARD_WIDTH = 4;
+const BOARD_HEIGHT = 4;
 
 function carvePath(tiles, x1, y1, x2, y2) {
   let x = x1;
@@ -56,8 +56,8 @@ function generateRoom(x, y) {
       exits[shuffled[1]].y
     );
 
-    // meer paden, slingers en doodlopers
-    const extraPaths = 3 + Math.floor(Math.random() * 5); // 3-7 extra paden
+    // extra paden
+    const extraPaths = 3 + Math.floor(Math.random() * 5);
     for (let i = 0; i < extraPaths; i++) {
       const sx = Math.floor(Math.random() * ROOM_WIDTH);
       const sy = Math.floor(Math.random() * ROOM_HEIGHT);
@@ -78,7 +78,7 @@ function generateRoom(x, y) {
     tiles,
     exits,
     color: `hsl(${Math.random() * 360}, 50%, 25%)`,
-    discovered: x === 0 && y === 0, // startkamer zichtbaar
+    discovered: x === 0 && y === 0,
   };
 }
 
@@ -88,7 +88,9 @@ export default function Board() {
 
   useEffect(() => {
     const startRoom = generateRoom(0, 0);
-    setRooms(new Map([[`0,0`, startRoom]]));
+    const initialRooms = new Map();
+    initialRooms.set("0,0", startRoom);
+    setRooms(initialRooms);
   }, []);
 
   useEffect(() => {
@@ -121,15 +123,16 @@ export default function Board() {
           return { ...prev, x: newX, y: newY };
         }
 
-        // kamerwissel
+        // kamerwissel (met wrap-around!)
         for (const [dir, exit] of Object.entries(currentRoom.exits)) {
           if (exit && prev.x === exit.x && prev.y === exit.y) {
             let newRoomX = prev.roomX;
             let newRoomY = prev.roomY;
-            if (dir === "left") newRoomX--;
-            if (dir === "right") newRoomX++;
-            if (dir === "top") newRoomY--;
-            if (dir === "bottom") newRoomY++;
+
+            if (dir === "left") newRoomX = (prev.roomX - 1 + BOARD_WIDTH) % BOARD_WIDTH;
+            if (dir === "right") newRoomX = (prev.roomX + 1) % BOARD_WIDTH;
+            if (dir === "top") newRoomY = (prev.roomY - 1 + BOARD_HEIGHT) % BOARD_HEIGHT;
+            if (dir === "bottom") newRoomY = (prev.roomY + 1) % BOARD_HEIGHT;
 
             const newRoomKey = `${newRoomX},${newRoomY}`;
             let newRoom = rooms.get(newRoomKey);
