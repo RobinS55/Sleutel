@@ -55,7 +55,6 @@ function generateRoom(x, y) {
     carvePath(tiles, Math.floor(ROOM_WIDTH/2), Math.floor(ROOM_HEIGHT/2),
               Math.floor(ROOM_WIDTH/2)+2, Math.floor(ROOM_HEIGHT/2));
   } else {
-    // kies minimaal 2 exits om te verbinden
     const availableExits = Object.keys(exits).filter(dir => exits[dir]);
     const shuffled = availableExits.sort(() => Math.random()-0.5);
     carvePath(tiles, exits[shuffled[0]].x, exits[shuffled[0]].y,
@@ -126,11 +125,11 @@ export default function Board() {
         const room = board[by][bx];
         if (!room) continue;
 
+        // alleen huidige + verkende kamers
+        if (!revealedRooms.has(`${bx},${by}`) && !(bx===currentRoom.x && by===currentRoom.y)) continue;
+
         const offsetX = bx*ROOM_WIDTH*TILE_SIZE;
         const offsetY = by*ROOM_HEIGHT*TILE_SIZE;
-
-        // alleen huidige + verkende kamers zichtbaar
-        if (!revealedRooms.has(`${bx},${by}`) && !(bx===currentRoom.x && by===currentRoom.y)) continue;
 
         ctx.fillStyle=room.color;
         ctx.fillRect(offsetX, offsetY, ROOM_WIDTH*TILE_SIZE, ROOM_HEIGHT*TILE_SIZE);
@@ -191,21 +190,37 @@ export default function Board() {
           let newRoomY=currentRoom.y;
           let newPos={x:0,y:0};
 
-          if (dir==="left" && currentRoom.x>0) {
-            newRoomX--;
-            newPos={...board[newRoomY][newRoomX].exits.right};
+          if (dir==="left") {
+            if (currentRoom.x>0) {
+              newRoomX--;
+              newPos={...board[newRoomY][newRoomX].exits.right};
+            } else {
+              // wrap-around naar meest rechtse kamer in dezelfde rij
+              newRoomX = BOARD_WIDTH-1;
+              newPos={...board[newRoomY][newRoomX].exits.right};
+            }
           }
-          if (dir==="right" && currentRoom.x<BOARD_WIDTH-1) {
-            newRoomX++;
-            newPos={...board[newRoomY][newRoomX].exits.left};
+          if (dir==="right") {
+            if (currentRoom.x<BOARD_WIDTH-1) {
+              newRoomX++;
+              newPos={...board[newRoomY][newRoomX].exits.left};
+            } else {
+              // wrap-around naar meest linkse kamer
+              newRoomX = 0;
+              newPos={...board[newRoomY][newRoomX].exits.left};
+            }
           }
-          if (dir==="top" && currentRoom.y>0) {
-            newRoomY--;
-            newPos={...board[newRoomY][newRoomX].exits.bottom};
+          if (dir==="top") {
+            if (currentRoom.y>0) {
+              newRoomY--;
+              newPos={...board[newRoomY][newRoomX].exits.bottom};
+            }
           }
-          if (dir==="bottom" && currentRoom.y<BOARD_HEIGHT-1) {
-            newRoomY++;
-            newPos={...board[newRoomY][newRoomX].exits.top};
+          if (dir==="bottom") {
+            if (currentRoom.y<BOARD_HEIGHT-1) {
+              newRoomY++;
+              newPos={...board[newRoomY][newRoomX].exits.top};
+            }
           }
 
           const newRoom = board[newRoomY][newRoomX];
