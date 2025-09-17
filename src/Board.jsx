@@ -89,32 +89,32 @@ export default function Board() {
   const [playerPos, setPlayerPos] = useState({x:0,y:0});
   const [revealedRooms, setRevealedRooms] = useState(new Set(["0,0"]));
 
-  // tekenen
+  // canvas tekenen
   useEffect(()=>{
     const canvas = canvasRef.current;
     if(!canvas) return;
     const ctx = canvas.getContext("2d");
+
     const totalWidth = BOARD_WIDTH*ROOM_WIDTH*TILE_SIZE;
     const totalHeight = BOARD_HEIGHT*ROOM_HEIGHT*TILE_SIZE;
     canvas.width = totalWidth;
     canvas.height = totalHeight;
     ctx.clearRect(0,0,totalWidth,totalHeight);
 
-    const offsetX = -currentRoom.x*ROOM_WIDTH*TILE_SIZE;
-    const offsetY = -currentRoom.y*ROOM_HEIGHT*TILE_SIZE;
-
+    // alle kamers tekenen
     for(let by=0;by<BOARD_HEIGHT;by++){
       for(let bx=0;bx<BOARD_WIDTH;bx++){
         const room = board[by][bx];
         if(!room) continue;
-        if(!revealedRooms.has(`${bx},${by}`) && !(bx===currentRoom.x && by===currentRoom.y)) continue;
 
-        const roomOffsetX = bx*ROOM_WIDTH*TILE_SIZE + offsetX;
-        const roomOffsetY = by*ROOM_HEIGHT*TILE_SIZE + offsetY;
+        const roomOffsetX = bx*ROOM_WIDTH*TILE_SIZE;
+        const roomOffsetY = by*ROOM_HEIGHT*TILE_SIZE;
 
+        // kamer achtergrond
         ctx.fillStyle = room.color;
         ctx.fillRect(roomOffsetX, roomOffsetY, ROOM_WIDTH*TILE_SIZE, ROOM_HEIGHT*TILE_SIZE);
 
+        // tiles
         for(let y=0;y<ROOM_HEIGHT;y++){
           for(let x=0;x<ROOM_WIDTH;x++){
             let color = "#222";
@@ -131,13 +131,22 @@ export default function Board() {
             ctx.fill();
           }
         }
+
+        // highlight actieve kamer
+        if(bx===currentRoom.x && by===currentRoom.y){
+          ctx.strokeStyle="#fff";
+          ctx.lineWidth=4;
+          ctx.strokeRect(roomOffsetX, roomOffsetY, ROOM_WIDTH*TILE_SIZE, ROOM_HEIGHT*TILE_SIZE);
+        }
       }
     }
 
-    const spX = currentRoom.x*ROOM_WIDTH*TILE_SIZE + playerPos.x*TILE_SIZE + offsetX;
-    const spY = currentRoom.y*ROOM_HEIGHT*TILE_SIZE + playerPos.y*TILE_SIZE + offsetY;
+    // speler tekenen
+    const spX = currentRoom.x*ROOM_WIDTH*TILE_SIZE + playerPos.x*TILE_SIZE;
+    const spY = currentRoom.y*ROOM_HEIGHT*TILE_SIZE + playerPos.y*TILE_SIZE;
     ctx.fillStyle="red";
     ctx.fillRect(spX, spY, TILE_SIZE, TILE_SIZE);
+
   }, [board, playerPos, currentRoom, revealedRooms]);
 
   // controls
@@ -156,6 +165,7 @@ export default function Board() {
       if(room.tiles[y][x]==="wall") return;
       setPlayerPos({x,y});
 
+      // kameruitgangen
       for(const dir of ["left","right","top","bottom"]){
         const exit = room.exits[dir];
         if(exit && exit.x===x && exit.y===y){
@@ -164,21 +174,14 @@ export default function Board() {
           let newPos={x:0,y:0};
           const oppositeDir = dir==="left"?"right":dir==="right"?"left":dir==="top"?"bottom":"top";
 
-          if(dir==="left"){
-            if(currentRoom.x>0) newRoomX--; else newRoomX=BOARD_WIDTH-1;
-          }
-          if(dir==="right"){
-            if(currentRoom.x<BOARD_WIDTH-1) newRoomX++; else newRoomX=0;
-          }
-          if(dir==="top"){
-            if(currentRoom.y>0) newRoomY--; else newRoomY=BOARD_HEIGHT-1;
-          }
-          if(dir==="bottom"){
-            if(currentRoom.y<BOARD_HEIGHT-1) newRoomY++; else newRoomY=0;
-          }
+          if(dir==="left") newRoomX = currentRoom.x>0? currentRoom.x-1 : BOARD_WIDTH-1;
+          if(dir==="right") newRoomX = currentRoom.x<BOARD_WIDTH-1? currentRoom.x+1 : 0;
+          if(dir==="top") newRoomY = currentRoom.y>0? currentRoom.y-1 : BOARD_HEIGHT-1;
+          if(dir==="bottom") newRoomY = currentRoom.y<BOARD_HEIGHT-1? currentRoom.y+1 : 0;
 
           newPos = {...board[newRoomY][newRoomX].exits[oppositeDir]};
 
+          // forceer path bij wrap
           if(board[newRoomY][newRoomX].tiles[newPos.y][newPos.x]==="wall")
             board[newRoomY][newRoomX].tiles[newPos.y][newPos.x]="path";
 
@@ -188,6 +191,7 @@ export default function Board() {
         }
       }
 
+      // open locked paths
       if(e.key===" "){
         room.lockedPaths.forEach(p => room.tiles[p.y][p.x]="path");
         room.lockedPaths.length=0;
