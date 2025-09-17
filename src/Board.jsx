@@ -4,8 +4,9 @@ import "./Board.css";
 
 const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
-const ROOM_WIDTH = 12;
-const ROOM_HEIGHT = 6;
+// Oneven afmetingen voor perfecte middens
+const ROOM_WIDTH = 13;
+const ROOM_HEIGHT = 7;
 
 function carvePath(tiles, x1, y1, x2, y2) {
   let x = x1;
@@ -28,7 +29,7 @@ function generateRoom(x, y) {
     Array.from({ length: ROOM_WIDTH }, () => "wall")
   );
 
-  // Uitgangen exact in het midden van de rand
+  // Uitgangen exact in het midden
   const exits = {
     left: { x: 0, y: Math.floor(ROOM_HEIGHT / 2) },
     right: { x: ROOM_WIDTH - 1, y: Math.floor(ROOM_HEIGHT / 2) },
@@ -48,7 +49,7 @@ function generateRoom(x, y) {
       x,
       y,
       tiles,
-      exits: { right: exits.right, bottom: exits.bottom }, // Alleen deze uitgangen
+      exits: { right: exits.right, bottom: exits.bottom },
       color: `hsl(${Math.random() * 360},50%,25%)`,
       discovered: true,
       isStart: true,
@@ -68,7 +69,7 @@ function generateRoom(x, y) {
     carvePath(tiles, chosenExit.x, chosenExit.y, ex, ey);
   }
 
-  // Zorg dat alle 4 exits zichtbaar zijn
+  // Alle 4 exits altijd zichtbaar
   for (const dir of exitKeys) {
     tiles[exits[dir].y][exits[dir].x] = "path";
   }
