@@ -5,39 +5,54 @@ const ROOM_HEIGHT = 10;
 const TILE_SIZE = 30;
 const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
-const STEP_SIZE = 1; // 1 tegel per keypress nu
+const STEP_SIZE = 1;
 
-// genereer een kamer met logisch hoofdpad + doodlopende zijpaden
+// grootte van het zichtbare scherm in tegels
+const VIEW_WIDTH = 20;
+const VIEW_HEIGHT = 12;
+
 function generateRoom(x, y) {
   const tiles = Array.from({ length: ROOM_HEIGHT }, () =>
     Array.from({ length: ROOM_WIDTH }, () => "wall")
   );
 
-  // startpunt in de kamer
-  const startX = 1;
-  const startY = 1;
-
-  // hoofdpad naar rechts en naar beneden
   const mainPath = [];
 
-  let cx = startX;
-  let cy = startY;
+  // Hoofdpad start altijd linksboven in de kamer
+  let cx = 1;
+  let cy = 1;
   tiles[cy][cx] = "path";
   mainPath.push({ x: cx, y: cy });
 
-  while (cx < ROOM_WIDTH - 2) {
-    cx++;
-    tiles[cy][cx] = "path";
-    mainPath.push({ x: cx, y: cy });
+  // als dit de eerste kamer is (0,0): forceer rechts én beneden
+  if (x === 0 && y === 0) {
+    // pad naar rechts
+    while (cx < ROOM_WIDTH - 2) {
+      cx++;
+      tiles[cy][cx] = "path";
+      mainPath.push({ x: cx, y: cy });
+    }
+    // pad naar beneden
+    while (cy < ROOM_HEIGHT - 2) {
+      cy++;
+      tiles[cy][cx] = "path";
+      mainPath.push({ x: cx, y: cy });
+    }
+  } else {
+    // normale kamer: pad eerst naar rechts, dan omlaag
+    while (cx < ROOM_WIDTH - 2) {
+      cx++;
+      tiles[cy][cx] = "path";
+      mainPath.push({ x: cx, y: cy });
+    }
+    while (cy < ROOM_HEIGHT - 2) {
+      cy++;
+      tiles[cy][cx] = "path";
+      mainPath.push({ x: cx, y: cy });
+    }
   }
 
-  while (cy < ROOM_HEIGHT - 2) {
-    cy++;
-    tiles[cy][cx] = "path";
-    mainPath.push({ x: cx, y: cy });
-  }
-
-  // voeg enkele doodlopende zijpaden toe
+  // zijpaden
   for (const p of mainPath) {
     if (Math.random() < 0.3) {
       let length = Math.floor(Math.random() * 3) + 1;
@@ -53,20 +68,18 @@ function generateRoom(x, y) {
     }
   }
 
-  // definieer exits
+  // exits
   const exits = {
     left: { x: 0, y: Math.floor(ROOM_HEIGHT / 2) },
     right: { x: ROOM_WIDTH - 1, y: Math.floor(ROOM_HEIGHT / 2) },
     top: { x: Math.floor(ROOM_WIDTH / 2), y: 0 },
     bottom: { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 }
   };
-
   if (x === 0 && y === 0) {
     exits.left = null;
     exits.top = null;
   }
 
-  // zorg dat hoofdpad naar exits leidt
   if (exits.right) tiles[exits.right.y][exits.right.x] = "path";
   if (exits.bottom) tiles[exits.bottom.y][exits.bottom.x] = "path";
 
@@ -92,6 +105,14 @@ export default function Board() {
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // bereken wereldpositie van de speler
+      const worldX = currentRoom.x * ROOM_WIDTH + playerPos.x;
+      const worldY = currentRoom.y * ROOM_HEIGHT + playerPos.y;
+
+      // viewport centreren rond speler
+      const offsetX = worldX - Math.floor(VIEW_WIDTH / 2);
+      const offsetY = worldY - Math.floor(VIEW_HEIGHT / 2);
+
       for (let ry = 0; ry < BOARD_HEIGHT; ry++) {
         for (let rx = 0; rx < BOARD_WIDTH; rx++) {
           const key = `${rx},${ry}`;
@@ -105,18 +126,30 @@ export default function Board() {
                 const exit = room.exits[dir];
                 if (exit && exit.x === x && exit.y === y) color = "#0f0";
               }
-              const px = (rx * ROOM_WIDTH + x) * TILE_SIZE;
-              const py = (ry * ROOM_HEIGHT + y) * TILE_SIZE;
-              ctx.fillStyle = color;
-              ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+              const worldTileX = rx * ROOM_WIDTH + x;
+              const worldTileY = ry * ROOM_HEIGHT + y;
+
+              // alleen tekenen wat binnen de viewport valt
+              if (
+                worldTileX >= offsetX &&
+                worldTileX < offsetX + VIEW_WIDTH &&
+                worldTileY >= offsetY &&
+                worldTileY < offsetY + VIEW_HEIGHT
+              ) {
+                const px = (worldTileX - offsetX) * TILE_SIZE;
+                const py = (worldTileY - offsetY) * TILE_SIZE;
+                ctx.fillStyle = color;
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+              }
             }
           }
         }
       }
 
-      // speler tekenen
-      const px = (currentRoom.x * ROOM_WIDTH + playerPos.x) * TILE_SIZE;
-      const py = (currentRoom.y * ROOM_HEIGHT + playerPos.y) * TILE_SIZE;
+      // speler tekenen in viewport
+      const px = (worldX - offsetX) * TILE_SIZE;
+      const py = (worldY - offsetY) * TILE_SIZE;
       ctx.fillStyle = "red";
       ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
     }
@@ -134,13 +167,11 @@ export default function Board() {
       if (e.key === "ArrowLeft") x -= STEP_SIZE;
       if (e.key === "ArrowRight") x += STEP_SIZE;
 
-      // check muren
       if (x < 0 || y < 0 || x >= ROOM_WIDTH || y >= ROOM_HEIGHT) return;
       if (room.tiles[y][x] === "wall") return;
 
       setPlayerPos({ x, y });
 
-      // check exits
       for (const dir of ["left", "right", "top", "bottom"]) {
         const exit = room.exits[dir];
         if (exit && exit.x === x && exit.y === y) {
@@ -180,8 +211,8 @@ export default function Board() {
   return (
     <canvas
       ref={canvasRef}
-      width={BOARD_WIDTH * ROOM_WIDTH * TILE_SIZE}
-      height={BOARD_HEIGHT * ROOM_HEIGHT * TILE_SIZE}
+      width={VIEW_WIDTH * TILE_SIZE}
+      height={VIEW_HEIGHT * TILE_SIZE}
     />
   );
 }
