@@ -28,6 +28,7 @@ function generateRoom(x, y) {
     Array.from({ length: ROOM_WIDTH }, () => "wall")
   );
 
+  // Uitgangen exact in het midden van de rand
   const exits = {
     left: { x: 0, y: Math.floor(ROOM_HEIGHT / 2) },
     right: { x: ROOM_WIDTH - 1, y: Math.floor(ROOM_HEIGHT / 2) },
@@ -47,9 +48,10 @@ function generateRoom(x, y) {
       x,
       y,
       tiles,
-      exits,
+      exits: { right: exits.right, bottom: exits.bottom }, // Alleen deze uitgangen
       color: `hsl(${Math.random() * 360},50%,25%)`,
       discovered: true,
+      isStart: true,
     };
   }
 
@@ -66,7 +68,7 @@ function generateRoom(x, y) {
     carvePath(tiles, chosenExit.x, chosenExit.y, ex, ey);
   }
 
-  // Alle 4 exits altijd zichtbaar
+  // Zorg dat alle 4 exits zichtbaar zijn
   for (const dir of exitKeys) {
     tiles[exits[dir].y][exits[dir].x] = "path";
   }
@@ -78,10 +80,13 @@ function generateRoom(x, y) {
     exits,
     color: `hsl(${Math.random() * 360},50%,25%)`,
     discovered: false,
+    isStart: false,
   };
 }
 
 function rotateRoom180(room) {
+  if (room.isStart) return room; // Startkamer nooit draaien
+
   const newTiles = Array.from({ length: ROOM_HEIGHT }, () =>
     Array.from({ length: ROOM_WIDTH }, () => "wall")
   );
@@ -148,9 +153,10 @@ export default function Board() {
         if (e.key === "ArrowLeft") nx--;
         if (e.key === "ArrowRight") nx++;
 
-        // Kamer wissel met wrap-around
+        const currentRoomExits = room.exits;
+
         // LEFT
-        if (nx < 0 && ny === room.exits.left.y) {
+        if (nx < 0 && ny === currentRoomExits.left?.y) {
           if (roomX > 0) {
             roomX -= 1;
             nx = ROOM_WIDTH - 1;
@@ -163,7 +169,7 @@ export default function Board() {
         }
 
         // RIGHT
-        if (nx >= ROOM_WIDTH && ny === room.exits.right.y) {
+        if (nx >= ROOM_WIDTH && ny === currentRoomExits.right?.y) {
           if (roomX < BOARD_WIDTH - 1) {
             roomX += 1;
             nx = 0;
@@ -176,7 +182,7 @@ export default function Board() {
         }
 
         // UP
-        if (ny < 0 && nx === room.exits.top.x) {
+        if (ny < 0 && nx === currentRoomExits.top?.x) {
           if (roomY > 0) {
             roomY -= 1;
             ny = ROOM_HEIGHT - 1;
@@ -189,7 +195,7 @@ export default function Board() {
         }
 
         // DOWN
-        if (ny >= ROOM_HEIGHT && nx === room.exits.bottom.x) {
+        if (ny >= ROOM_HEIGHT && nx === currentRoomExits.bottom?.x) {
           if (roomY < BOARD_HEIGHT - 1) {
             roomY += 1;
             ny = 0;
@@ -238,10 +244,10 @@ export default function Board() {
                       player.x === x &&
                       player.y === y;
                     let isExit =
-                      (room.exits.left.x === x && room.exits.left.y === y) ||
-                      (room.exits.right.x === x && room.exits.right.y === y) ||
-                      (room.exits.top.x === x && room.exits.top.y === y) ||
-                      (room.exits.bottom.x === x && room.exits.bottom.y === y);
+                      (room.exits.left && room.exits.left.x === x && room.exits.left.y === y) ||
+                      (room.exits.right && room.exits.right.x === x && room.exits.right.y === y) ||
+                      (room.exits.top && room.exits.top.x === x && room.exits.top.y === y) ||
+                      (room.exits.bottom && room.exits.bottom.x === x && room.exits.bottom.y === y);
                     return (
                       <div
                         key={x + "-" + y}
