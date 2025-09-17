@@ -7,12 +7,10 @@ const BOARD_HEIGHT = 4;
 const ROOM_WIDTH = 12;
 const ROOM_HEIGHT = 6;
 
-// hulpfunctie: pad tussen 2 punten
 function carvePath(tiles, x1, y1, x2, y2) {
   let x = x1;
   let y = y1;
   tiles[y][x] = "path";
-
   while (x !== x2 || y !== y2) {
     if (Math.random() < 0.5) {
       if (x < x2) x++;
@@ -25,7 +23,6 @@ function carvePath(tiles, x1, y1, x2, y2) {
   }
 }
 
-// kamer genereren
 function generateRoom(x, y) {
   const tiles = Array.from({ length: ROOM_HEIGHT }, () =>
     Array.from({ length: ROOM_WIDTH }, () => "wall")
@@ -38,7 +35,7 @@ function generateRoom(x, y) {
     bottom: { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 },
   };
 
-  // uitschakelen bij hoeken
+  // 🟢 Hoek-correcties
   if (x === 0 && y === 0) {
     exits.left = null;
     exits.top = null;
@@ -49,14 +46,20 @@ function generateRoom(x, y) {
   }
   if (x === 0 && y === BOARD_HEIGHT - 1) {
     exits.left = null;
-    exits.bottom = null;
+    exits.bottom = null; // ❌ onderuitgang uitschakelen in linksonder
   }
   if (x === BOARD_WIDTH - 1 && y === BOARD_HEIGHT - 1) {
     exits.right = null;
     exits.bottom = null;
   }
 
-  // eerste kamer moet altijd 2 verbindingen hebben
+  // 🟢 Rand-correcties
+  if (y === BOARD_HEIGHT - 1) exits.bottom = null; // onderste rij → geen onderuitgang
+  if (y === 0) exits.top = null; // bovenste rij → geen bovenuitgang
+  if (x === 0) exits.left = null; // linker kolom → geen linkeruitgang
+  if (x === BOARD_WIDTH - 1) exits.right = null; // rechter kolom → geen rechteruitgang
+
+  // eerste kamer moet een pad hebben naar rechts en beneden
   if (x === 0 && y === 0) {
     tiles[0][0] = "path";
     carvePath(tiles, 0, 0, exits.right.x, exits.right.y);
@@ -65,7 +68,6 @@ function generateRoom(x, y) {
     const availableExits = Object.keys(exits).filter((dir) => exits[dir]);
     const shuffled = availableExits.sort(() => Math.random() - 0.5);
 
-    // verbind minstens 2 exits met elkaar
     if (shuffled.length >= 2) {
       carvePath(
         tiles,
@@ -76,14 +78,16 @@ function generateRoom(x, y) {
       );
     }
 
-    // extra paden, maar altijd verbonden met bestaande paden
-    const extraPaths = 3 + Math.floor(Math.random() * 4);
+    // extra paden die verbonden blijven
+    const extraPaths = 2 + Math.floor(Math.random() * 3);
     for (let i = 0; i < extraPaths; i++) {
       const chosenExit =
         exits[availableExits[Math.floor(Math.random() * availableExits.length)]];
-      const ex = Math.floor(Math.random() * ROOM_WIDTH);
-      const ey = Math.floor(Math.random() * ROOM_HEIGHT);
-      carvePath(tiles, chosenExit.x, chosenExit.y, ex, ey);
+      if (chosenExit) {
+        const ex = Math.floor(Math.random() * ROOM_WIDTH);
+        const ey = Math.floor(Math.random() * ROOM_HEIGHT);
+        carvePath(tiles, chosenExit.x, chosenExit.y, ex, ey);
+      }
     }
 
     // exits zelf groen maken
@@ -134,7 +138,7 @@ export default function Board() {
         if (e.key === "ArrowLeft") nx--;
         if (e.key === "ArrowRight") nx++;
 
-        // kamer wisselen bij uitgang
+        // kamer wissel checks
         if (ny < 0 && room.exits.top && nx === room.exits.top.x) {
           roomY = (roomY - 1 + BOARD_HEIGHT) % BOARD_HEIGHT;
           ny = ROOM_HEIGHT - 1;
@@ -156,7 +160,6 @@ export default function Board() {
           ny = rooms[roomY][roomX].exits.left.y;
         }
 
-        // check of nieuwe positie begaanbaar is
         const newRoom = rooms[roomY][roomX];
         if (newRoom.tiles[ny]?.[nx] === "path") {
           rooms[roomY][roomX].discovered = true;
