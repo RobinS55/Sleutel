@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
 
-const ROOM_WIDTH = 12; // kamer 2x zo breed als hoog
+const ROOM_WIDTH = 12;   // kamer 2x zo breed als hoog
 const ROOM_HEIGHT = 6;
 const TILE_SIZE = 40;
+
+const BOARD_WIDTH = 10;   // aantal kamers horizontaal
+const BOARD_HEIGHT = 10;  // aantal kamers verticaal
 
 function carvePath(tiles, x1, y1, x2, y2) {
   let x = x1;
@@ -34,7 +37,7 @@ function generateRoom(x, y) {
   };
 
   if (x === 0 && y === 0) {
-    // eerste kamer → start linksboven
+    // eerste kamer (startpunt)
     exits.left = null;
     exits.top = null;
     tiles[0][0] = "path";
@@ -53,24 +56,13 @@ function generateRoom(x, y) {
     );
 
     // extra slingerpaden
-    const extraPaths = 2 + Math.floor(Math.random() * 3);
+    const extraPaths = 1 + Math.floor(Math.random() * 3);
     for (let i = 0; i < extraPaths; i++) {
       const sx = Math.floor(Math.random() * ROOM_WIDTH);
       const sy = Math.floor(Math.random() * ROOM_HEIGHT);
       const ex = Math.floor(Math.random() * ROOM_WIDTH);
       const ey = Math.floor(Math.random() * ROOM_HEIGHT);
       carvePath(tiles, sx, sy, ex, ey);
-    }
-
-    // doodlopende stukjes
-    const deadEnds = 1 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < deadEnds; i++) {
-      const dx = Math.floor(Math.random() * ROOM_WIDTH);
-      const dy = Math.floor(Math.random() * ROOM_HEIGHT);
-      if (tiles[dy][dx] === "wall") {
-        tiles[dy][dx] = "path";
-        if (dx + 1 < ROOM_WIDTH) tiles[dy][dx + 1] = "path";
-      }
     }
 
     // exits altijd vrijmaken
@@ -116,7 +108,7 @@ export default function Board() {
         const newX = prev.x + dx;
         const newY = prev.y + dy;
 
-        // binnen de kamer
+        // binnen kamer
         if (
           newX >= 0 &&
           newX < ROOM_WIDTH &&
@@ -182,9 +174,9 @@ export default function Board() {
       width="100%"
       height="100vh"
       style={{ background: "black", display: "block" }}
-      viewBox={`${player.roomX * ROOM_WIDTH * TILE_SIZE} ${
-        player.roomY * ROOM_HEIGHT * TILE_SIZE
-      } ${ROOM_WIDTH * TILE_SIZE} ${ROOM_HEIGHT * TILE_SIZE}`}
+      viewBox={`0 0 ${BOARD_WIDTH * ROOM_WIDTH * TILE_SIZE} ${
+        BOARD_HEIGHT * ROOM_HEIGHT * TILE_SIZE
+      }`}
     >
       {Array.from(rooms.values()).map((room) => (
         <g
@@ -194,25 +186,44 @@ export default function Board() {
           })`}
         >
           {room.tiles.map((row, y) =>
-            row.map((tile, x) => (
-              <rect
-                key={`${x},${y}`}
-                x={x * TILE_SIZE}
-                y={y * TILE_SIZE}
-                width={TILE_SIZE}
-                height={TILE_SIZE}
-                fill={
-                  tile === "wall"
-                    ? room.color
-                    : "black"
-                }
-                stroke="gray"
-                strokeWidth={1}
-              />
-            ))
+            row.map((tile, x) => {
+              const isExit = Object.values(room.exits).some(
+                (e) => e && e.x === x && e.y === y
+              );
+              return (
+                <rect
+                  key={`${x},${y}`}
+                  x={x * TILE_SIZE}
+                  y={y * TILE_SIZE}
+                  width={TILE_SIZE}
+                  height={TILE_SIZE}
+                  fill={
+                    isExit
+                      ? "green"
+                      : tile === "wall"
+                      ? room.color
+                      : "black"
+                  }
+                  stroke="gray"
+                  strokeWidth={1}
+                />
+              );
+            })
           )}
         </g>
       ))}
+
+      {activeRoom && (
+        <rect
+          x={activeRoom.x * ROOM_WIDTH * TILE_SIZE}
+          y={activeRoom.y * ROOM_HEIGHT * TILE_SIZE}
+          width={ROOM_WIDTH * TILE_SIZE}
+          height={ROOM_HEIGHT * TILE_SIZE}
+          fill="none"
+          stroke="white"
+          strokeWidth={3}
+        />
+      )}
 
       <circle
         cx={player.roomX * ROOM_WIDTH * TILE_SIZE + player.x * TILE_SIZE + TILE_SIZE / 2}
