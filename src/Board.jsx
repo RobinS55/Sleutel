@@ -7,7 +7,7 @@ const BOARD_WIDTH = 4;
 const BOARD_HEIGHT = 4;
 const STEP_SIZE = 1;
 
-// pad carve functie
+// carve een pad tussen twee punten
 function carvePath(tiles, ax, ay, bx, by) {
   let x = ax;
   let y = ay;
@@ -28,8 +28,8 @@ function carvePath(tiles, ax, ay, bx, by) {
   }
 }
 
-// kamer genereren
-function generateRoom(x, y, board) {
+// genereer een kamer met meerdere paden
+function generateRoom(x, y) {
   const tiles = Array.from({ length: ROOM_HEIGHT }, () =>
     Array.from({ length: ROOM_WIDTH }, () => "wall")
   );
@@ -50,17 +50,30 @@ function generateRoom(x, y, board) {
     tiles[0][0] = "path";
     carvePath(tiles, 0, 0, exits.right.x, exits.right.y);
     carvePath(tiles, 0, 0, exits.bottom.x, exits.bottom.y);
-    tiles[Math.floor(ROOM_HEIGHT/2)][Math.floor(ROOM_WIDTH/2)] = "path";
+
+    // extra doodlopend pad
+    carvePath(tiles, Math.floor(ROOM_WIDTH/2), Math.floor(ROOM_HEIGHT/2),
+              Math.floor(ROOM_WIDTH/2)+2, Math.floor(ROOM_HEIGHT/2));
   } else {
+    // kies minimaal 2 exits om te verbinden
     const availableExits = Object.keys(exits).filter(dir => exits[dir]);
-    if (availableExits.length >= 2) {
-      const [aDir, bDir] = availableExits.sort(() => Math.random()-0.5).slice(0,2);
-      carvePath(tiles, exits[aDir].x, exits[aDir].y, exits[bDir].x, exits[bDir].y);
+    const shuffled = availableExits.sort(() => Math.random()-0.5);
+    carvePath(tiles, exits[shuffled[0]].x, exits[shuffled[0]].y,
+                     exits[shuffled[1]].x, exits[shuffled[1]].y);
+
+    // extra paden (1-3)
+    const numExtraPaths = 1 + Math.floor(Math.random()*3);
+    for (let i=0; i<numExtraPaths; i++) {
+      const sx = Math.floor(Math.random()*ROOM_WIDTH);
+      const sy = Math.floor(Math.random()*ROOM_HEIGHT);
+      const ex = Math.floor(Math.random()*ROOM_WIDTH);
+      const ey = Math.floor(Math.random()*ROOM_HEIGHT);
+      carvePath(tiles, sx, sy, ex, ey);
     }
 
     // extra locked zijpaden
     for (let i=0; i<2; i++) {
-      if (Math.random() < 0.5) {
+      if (Math.random()<0.5) {
         const lx = Math.floor(Math.random()*ROOM_WIDTH);
         const ly = Math.floor(Math.random()*ROOM_HEIGHT);
         if (tiles[ly][lx]==="wall") {
@@ -75,7 +88,7 @@ function generateRoom(x, y, board) {
     }
   }
 
-  return { x, y, tiles, exits, lockedPaths, color:`hsl(${Math.random()*360},50%,30%)` };
+  return { x, y, tiles, exits, lockedPaths, color: `hsl(${Math.random()*360},50%,30%)` };
 }
 
 export default function Board() {
@@ -88,13 +101,8 @@ export default function Board() {
 
   useEffect(() => {
     const newBoard = Array.from({ length: BOARD_HEIGHT }, (_, y) =>
-      Array.from({ length: BOARD_WIDTH }, (_, x) => null)
+      Array.from({ length: BOARD_WIDTH }, (_, x) => generateRoom(x,y))
     );
-    for (let y=0; y<BOARD_HEIGHT; y++) {
-      for (let x=0; x<BOARD_WIDTH; x++) {
-        newBoard[y][x] = generateRoom(x,y,newBoard);
-      }
-    }
     setBoard(newBoard);
   }, []);
 
@@ -107,7 +115,6 @@ export default function Board() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-
     const totalWidth = BOARD_WIDTH*ROOM_WIDTH*TILE_SIZE;
     const totalHeight = BOARD_HEIGHT*ROOM_HEIGHT*TILE_SIZE;
     canvas.width = totalWidth;
@@ -118,14 +125,12 @@ export default function Board() {
       for (let bx=0; bx<BOARD_WIDTH; bx++) {
         const room = board[by][bx];
         if (!room) continue;
+
         const offsetX = bx*ROOM_WIDTH*TILE_SIZE;
         const offsetY = by*ROOM_HEIGHT*TILE_SIZE;
 
-        // niet-verkende kamers donkerder
-        if (!revealedRooms.has(`${bx},${by}`)) {
-          ctx.fillStyle="#111";
-          ctx.fillRect(offsetX, offsetY, ROOM_WIDTH*TILE_SIZE, ROOM_HEIGHT*TILE_SIZE);
-        }
+        // alleen huidige + verkende kamers zichtbaar
+        if (!revealedRooms.has(`${bx},${by}`) && !(bx===currentRoom.x && by===currentRoom.y)) continue;
 
         ctx.fillStyle=room.color;
         ctx.fillRect(offsetX, offsetY, ROOM_WIDTH*TILE_SIZE, ROOM_HEIGHT*TILE_SIZE);
@@ -203,7 +208,6 @@ export default function Board() {
             newPos={...board[newRoomY][newRoomX].exits.top};
           }
 
-          // zorg dat speler exact op een path tile komt
           const newRoom = board[newRoomY][newRoomX];
           if (newRoom.tiles[newPos.y][newPos.x]==="wall") newRoom.tiles[newPos.y][newPos.x]="path";
 
