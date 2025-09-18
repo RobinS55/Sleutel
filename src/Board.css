@@ -1,76 +1,62 @@
-/* Algemeen */
+/* basiselementen */
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; }
+html, body, #root { height: 100%; margin: 0; background: #060606; color: #eee; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
 
-/* Root container */
-.board-root {
+.root {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 12px;
-  background: #0b0b0b;
+  padding: 16px;
   min-height: 100vh;
-  color: #ddd;
 }
 
-/* Titel */
 .title {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  color: #eee;
-  letter-spacing: 0.6px;
+  font-size: 20px;
+  color: #f5f5f5;
 }
 
-/* Bord grid: 4x4 */
+/* bord grid: 4x4 */
 .board-grid {
   display: grid;
   grid-template-columns: repeat(4, auto);
-  gap: 10px;
+  gap: 12px;
+  padding: 6px;
 }
 
-/* Kamer */
+/* kamer */
 .room {
   display: flex;
   flex-direction: column;
   padding: 6px;
   border: 3px solid #333;
-  border-radius: 6px;
-  width: calc(13 * 14px + 12px); /* cell-size * ROOM_W + padding */
-  background: #111; /* covered if hidden */
+  border-radius: 8px;
+  width: calc(13 * 14px + 12px); /* ROOM_W * cell + padding */
+  background: #111;
+  position: relative;
 }
 
-/* Hidden (not discovered) keeps dark */
-.room.hidden {
-  filter: brightness(0.55);
-}
+/* highlight voor actieve kamer */
+.room.active-room { box-shadow: 0 0 0 3px rgba(255,255,255,0.06) inset; }
 
-/* Row inside room */
-.room-row {
-  display: flex;
-}
+/* room discovery look */
+.room.undiscovered { filter: brightness(0.55); }
 
-/* Cell common */
-.cell {
-  width: 14px;
-  height: 14px;
-  margin: 1px 0;
-  box-shadow: none;
-}
+/* rows */
+.room-row { display: flex; }
 
-/* Specific */
-.cell-wall { background: #202020; }
-.cell-path { background: #e8e2d9; }
-.cell-exit { background: #2bb34a; }
+/* cell */
+.tile { width: 14px; height: 14px; margin: 1px; border-radius: 2px; }
 
-/* Small cell for legend */
-.small { width: 12px; height: 12px; display: inline-block; margin-right: 6px; vertical-align: middle; }
+/* visuals */
+.tile-wall { background: #222; }
+.tile-path { background: #efe9db; }
+.tile-exit { background: #28b44b; box-shadow: 0 0 6px rgba(40,180,75,0.18) inset; }
+.tile-player { background: #e03b3b; box-shadow: 0 0 6px rgba(224,59,59,0.2) inset; }
 
-/* Legend */
-.legend {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-top: 8px;
-}
-.legend-item { font-size: 13px; color: #ddd; display:flex; align-items:center; gap:6px; }
+/* small label for room coordinates */
+.room-label { position: absolute; bottom: 4px; right: 6px; font-size: 10px; color: rgba(255,255,255,0.6); }
+
+/* controls text */
+.controls { font-size: 13px; color: #ddd; margin-top: 6px; opacity: 0.9; }
