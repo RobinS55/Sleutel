@@ -1,39 +1,76 @@
-.board {
+/* Algemeen */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+
+/* Root container */
+.board-root {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  margin: 10px;
+  gap: 12px;
+  padding: 12px;
+  background: #0b0b0b;
+  min-height: 100vh;
+  color: #ddd;
 }
 
-.board-row {
-  display: flex;
+/* Titel */
+.title {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  color: #eee;
+  letter-spacing: 0.6px;
 }
 
+/* Bord grid: 4x4 */
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 10px;
+}
+
+/* Kamer */
 .room {
   display: flex;
   flex-direction: column;
-  border: 2px solid #333;
-  margin: 5px;
+  padding: 6px;
+  border: 3px solid #333;
+  border-radius: 6px;
+  width: calc(13 * 14px + 12px); /* cell-size * ROOM_W + padding */
+  background: #111; /* covered if hidden */
 }
 
+/* Hidden (not discovered) keeps dark */
+.room.hidden {
+  filter: brightness(0.55);
+}
+
+/* Row inside room */
 .room-row {
   display: flex;
 }
 
+/* Cell common */
 .cell {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
+  margin: 1px 0;
+  box-shadow: none;
 }
 
-.wall {
-  background: #222;
-}
+/* Specific */
+.cell-wall { background: #202020; }
+.cell-path { background: #e8e2d9; }
+.cell-exit { background: #2bb34a; }
 
-.path {
-  background: #ccc;
-}
+/* Small cell for legend */
+.small { width: 12px; height: 12px; display: inline-block; margin-right: 6px; vertical-align: middle; }
 
-.exit {
-  background: green;
+/* Legend */
+.legend {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
 }
+.legend-item { font-size: 13px; color: #ddd; display:flex; align-items:center; gap:6px; }
