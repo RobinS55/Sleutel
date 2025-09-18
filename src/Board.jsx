@@ -39,35 +39,31 @@ function generateRoom(isFirst = false) {
   let chosenExits = [];
 
   if (isFirst) {
-    // eerste kamer: altijd rechts + beneden
     chosenExits = [exits.right, exits.bottom];
-    room[mid][mid] = "start"; // speler start in het midden
+    room[1][1] = "start"; // speler begint linksboven in eerste kamer
+    carvePath(room, [1,1], exits.right);
+    carvePath(room, [1,1], exits.bottom);
   } else {
-    // kies minimaal 2 willekeurige uitgangen
     const exitKeys = Object.keys(exits);
     chosenExits = exitKeys
       .sort(() => 0.5 - Math.random())
       .slice(0, 2)
       .map((key) => exits[key]);
+    chosenExits.forEach((exit) => carvePath(room, [Math.floor(GRID_SIZE/2), Math.floor(GRID_SIZE/2)], exit));
   }
-
-  // carve paden naar gekozen uitgangen
-  chosenExits.forEach((exit) => carvePath(room, [mid, mid], exit));
 
   // extra doodlopende paden voor variatie
   for (let i = 0; i < 2; i++) {
     const randX = 1 + Math.floor(Math.random() * (GRID_SIZE - 2));
     const randY = 1 + Math.floor(Math.random() * (GRID_SIZE - 2));
     if (room[randY][randX] === "wall") {
-      carvePath(room, [mid, mid], [randX, randY]);
+      carvePath(room, [Math.floor(GRID_SIZE/2), Math.floor(GRID_SIZE/2)], [randX, randY]);
     }
   }
 
-  // markeer uitgangen die geraakt zijn
+  // markeer uitgangen
   Object.values(exits).forEach(([x, y]) => {
-    if (room[y][x] === "path") {
-      room[y][x] = "exit";
-    }
+    if (room[y][x] === "path") room[y][x] = "exit";
   });
 
   return room;
@@ -87,11 +83,40 @@ function generateBoard() {
 
 export default function Board() {
   const [board, setBoard] = useState([]);
+  const [playerPos, setPlayerPos] = useState({ row: 0, col: 0, y: 1, x: 1 });
 
   useEffect(() => {
-    document.title = "Sleutel"; // titel in de browser
+    document.title = "Sleutel";
     setBoard(generateBoard());
   }, []);
+
+  // eenvoudige beweging met pijltjestoetsen
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (!board.length) return;
+      let { row, col, y, x } = playerPos;
+      const room = board[row][col];
+
+      let newY = y;
+      let newX = x;
+
+      if (e.key === "ArrowUp") newY--;
+      if (e.key === "ArrowDown") newY++;
+      if (e.key === "ArrowLeft") newX--;
+      if (e.key === "ArrowRight") newX++;
+
+      // binnen kamer checken
+      if (newY >= 0 && newY < GRID_SIZE && newX >= 0 && newX < GRID_SIZE) {
+        const cell = room[newY][newX];
+        if (cell === "path" || cell === "exit") {
+          setPlayerPos({ row, col, y: newY, x: newX });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [playerPos, board]);
 
   return (
     <div className="board">
@@ -101,9 +126,18 @@ export default function Board() {
             <div key={colIndex} className="room">
               {room.map((rowCells, y) => (
                 <div key={y} className="room-row">
-                  {rowCells.map((cell, x) => (
-                    <div key={x} className={`cell ${cell}`}></div>
-                  ))}
+                  {rowCells.map((cell, x) => {
+                    let className = cell;
+                    if (
+                      rowIndex === playerPos.row &&
+                      colIndex === playerPos.col &&
+                      y === playerPos.y &&
+                      x === playerPos.x
+                    ) {
+                      className = "player";
+                    }
+                    return <div key={x} className={`cell ${className}`}></div>;
+                  })}
                 </div>
               ))}
             </div>
