@@ -12,7 +12,6 @@ function generateEmptyRoom() {
 }
 
 function carvePath(room, start, end) {
-  // simpele "slingerende" lijn tussen start en end
   let [x, y] = start;
   room[y][x] = "path";
 
@@ -44,7 +43,7 @@ function generateRoom(isFirst = false) {
     chosenExits = [exits.right, exits.bottom];
     room[mid][mid] = "start"; // speler start in het midden
   } else {
-    // minimaal 2 willekeurige uitgangen
+    // kies minimaal 2 willekeurige uitgangen
     const exitKeys = Object.keys(exits);
     chosenExits = exitKeys
       .sort(() => 0.5 - Math.random())
@@ -64,7 +63,7 @@ function generateRoom(isFirst = false) {
     }
   }
 
-  // markeer uitgangen
+  // markeer uitgangen die geraakt zijn
   Object.values(exits).forEach(([x, y]) => {
     if (room[y][x] === "path") {
       room[y][x] = "exit";
@@ -100,9 +99,9 @@ export default function Board() {
         <div key={rowIndex} className="board-row">
           {row.map((room, colIndex) => (
             <div key={colIndex} className="room">
-              {room.map((r, y) => (
+              {room.map((rowCells, y) => (
                 <div key={y} className="room-row">
-                  {r.map((cell, x) => (
+                  {rowCells.map((cell, x) => (
                     <div key={x} className={`cell ${cell}`}></div>
                   ))}
                 </div>
