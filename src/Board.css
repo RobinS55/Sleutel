@@ -1,62 +1,41 @@
-/* basiselementen */
-* { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; background: #060606; color: #eee; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-
-.root {
+.board {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  min-height: 100vh;
+  gap: 4px;
 }
 
-.title {
-  margin: 0;
-  font-size: 20px;
-  color: #f5f5f5;
+.board-row {
+  display: flex;
+  gap: 4px;
 }
 
-/* bord grid: 4x4 */
-.board-grid {
-  display: grid;
-  grid-template-columns: repeat(4, auto);
-  gap: 12px;
-  padding: 6px;
-}
-
-/* kamer */
 .room {
   display: flex;
   flex-direction: column;
-  padding: 6px;
-  border: 3px solid #333;
-  border-radius: 8px;
-  width: calc(13 * 14px + 12px); /* ROOM_W * cell + padding */
-  background: #111;
-  position: relative;
+  border: 2px solid black;
 }
 
-/* highlight voor actieve kamer */
-.room.active-room { box-shadow: 0 0 0 3px rgba(255,255,255,0.06) inset; }
+.room-row {
+  display: flex;
+}
 
-/* room discovery look */
-.room.undiscovered { filter: brightness(0.55); }
+.cell {
+  width: 20px;
+  height: 20px;
+}
 
-/* rows */
-.room-row { display: flex; }
+.cell.wall {
+  background-color: #444;
+}
 
-/* cell */
-.tile { width: 14px; height: 14px; margin: 1px; border-radius: 2px; }
+.cell.path {
+  background-color: #ccc;
+}
 
-/* visuals */
-.tile-wall { background: #222; }
-.tile-path { background: #efe9db; }
-.tile-exit { background: #28b44b; box-shadow: 0 0 6px rgba(40,180,75,0.18) inset; }
-.tile-player { background: #e03b3b; box-shadow: 0 0 6px rgba(224,59,59,0.2) inset; }
+.cell.exit {
+  background-color: green;
+}
 
-/* small label for room coordinates */
-.room-label { position: absolute; bottom: 4px; right: 6px; font-size: 10px; color: rgba(255,255,255,0.6); }
-
-/* controls text */
-.controls { font-size: 13px; color: #ddd; margin-top: 6px; opacity: 0.9; }
+.cell.start {
+  background-color: blue;
+}
