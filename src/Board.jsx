@@ -1,163 +1,260 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import "./Board.css";
 
-const ROOM_SIZE = 9; // oneven zodat uitgangen midden zitten
-const BOARD_ROWS = 4;
+/*
+  Kernregels die deze generator volgt:
+  - Bord: 4 x 4 kamers
+  - Elke kamer: oneven grid (zodat uitgangen exact in het midden liggen)
+  - Startkamer = linksboven (0,0): alleen rechts + onder, nooit draaien
+  - Andere kamers: 4 zichtbare uitgangen, maar niet elke uitgang hoeft verbonden te zijn
+  - Minimaal 2 uitgangen per kamer zijn daadwerkelijk verbonden aan het pad
+  - Iedere kamer is een unieke maze voor variatie
+  - Startkamer is 'ontdekt'; overige kamers donker (fog) tot ontdekt (we tonen fog)
+*/
+
 const BOARD_COLS = 4;
+const BOARD_ROWS = 4;
 
-// Cel types
-const EMPTY = 0;
-const WALL = 1;
-const PATH = 2;
-const EXIT = 3;
+// oneven kamer afmetingen
+const ROOM_W = 13; // breedte (oneven)
+const ROOM_H = 7;  // hoogte (oneven)
 
-function generateMaze(roomSize, exits) {
-  // Maak grid vol walls
-  const grid = Array.from({ length: roomSize }, () =>
-    Array(roomSize).fill(WALL)
-  );
+// cell types
+const WALL = 0;
+const PATH = 1;
+const EXIT = 2;
 
-  // Start midden
-  const startX = Math.floor(roomSize / 2);
-  const startY = Math.floor(roomSize / 2);
-  grid[startY][startX] = PATH;
+function createEmptyGrid(w, h) {
+  return Array.from({ length: h }, () => Array.from({ length: w }, () => WALL));
+}
 
-  const stack = [[startX, startY]];
+// Randomized DFS maze carving on a grid with odd sizes yields nice corridors.
+// We will carve on a grid that allows stepping by 2 to ensure corridors with walls between.
+function carveMaze(grid) {
+  const h = grid.length;
+  const w = grid[0].length;
 
-  // DFS maze carving
-  const directions = [
+  // Ensure w,h are odd
+  const sx = Math.floor(w / 2);
+  const sy = Math.floor(h / 2);
+
+  grid[sy][sx] = PATH;
+  const stack = [[sx, sy]];
+
+  const dirs = [
     [0, -2],
     [0, 2],
     [-2, 0],
     [2, 0],
   ];
 
-  while (stack.length > 0) {
+  while (stack.length) {
     const [x, y] = stack[stack.length - 1];
 
-    // Vind alle buren die walls zijn
-    const neighbors = directions
+    const neighbors = dirs
       .map(([dx, dy]) => [x + dx, y + dy])
       .filter(
         ([nx, ny]) =>
-          nx > 0 &&
-          ny > 0 &&
-          nx < roomSize - 1 &&
-          ny < roomSize - 1 &&
-          grid[ny][nx] === WALL
+          nx > 0 && ny > 0 && nx < w - 1 && ny < h - 1 && grid[ny][nx] === WALL
       );
 
-    if (neighbors.length === 0) {
+    if (!neighbors.length) {
       stack.pop();
-    } else {
-      const [nx, ny] =
-        neighbors[Math.floor(Math.random() * neighbors.length)];
-      const mx = (x + nx) / 2;
-      const my = (y + ny) / 2;
-      grid[my][mx] = PATH;
-      grid[ny][nx] = PATH;
-      stack.push([nx, ny]);
+      continue;
     }
+
+    const [nx, ny] = neighbors[Math.floor(Math.random() * neighbors.length)];
+    // knock down the wall between
+    const mx = (x + nx) >> 1;
+    const my = (y + ny) >> 1;
+    grid[my][mx] = PATH;
+    grid[ny][nx] = PATH;
+    stack.push([nx, ny]);
   }
-
-  // Zet exits en verbind met maze
-  exits.forEach(([ex, ey]) => {
-    grid[ey][ex] = EXIT;
-
-    // Als exit niet aan pad grenst -> verbind
-    if (
-      ![
-        [0, 1],
-        [0, -1],
-        [1, 0],
-        [-1, 0],
-      ].some(([dx, dy]) => {
-        const nx = ex + dx;
-        const ny = ey + dy;
-        return (
-          nx >= 0 &&
-          ny >= 0 &&
-          nx < roomSize &&
-          ny < roomSize &&
-          grid[ny][nx] === PATH
-        );
-      })
-    ) {
-      // verbind naar centrum
-      let cx = startX;
-      let cy = startY;
-      let x = ex;
-      let y = ey;
-      while (x !== cx || y !== cy) {
-        if (x < cx) x++;
-        else if (x > cx) x--;
-        if (y < cy) y++;
-        else if (y > cy) y--;
-        grid[y][x] = PATH;
-      }
-    }
-  });
-
-  return grid;
 }
 
-function generateRoom(row, col) {
-  const size = ROOM_SIZE;
-  const exits = [];
+// ensure an exit cell (edge-center) connects to some PATH tile
+function ensureExitConnected(grid, ex, ey) {
+  const h = grid.length;
+  const w = grid[0].length;
 
-  const mid = Math.floor(size / 2);
-
-  // Linksonder: alleen rechts + boven
-  if (row === BOARD_ROWS - 1 && col === 0) {
-    exits.push([size - 1, mid]); // rechts
-    exits.push([mid, 0]); // boven
-  } else {
-    // Normale kamer -> 4 exits
-    exits.push([0, mid]); // links
-    exits.push([size - 1, mid]); // rechts
-    exits.push([mid, 0]); // boven
-    exits.push([mid, size - 1]); // onder
+  // if adjacent to a PATH already -> fine
+  const adj = [
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+  ];
+  const isNearPath = adj.some(([dx, dy]) => {
+    const nx = ex + dx;
+    const ny = ey + dy;
+    return nx >= 0 && ny >= 0 && nx < w && ny < h && grid[ny][nx] === PATH;
+  });
+  if (isNearPath) {
+    grid[ey][ex] = EXIT;
+    return;
   }
 
-  return generateMaze(size, exits);
+  // Otherwise carve a straight line toward center until we hit PATH
+  const cx = Math.floor(w / 2);
+  const cy = Math.floor(h / 2);
+  let x = ex;
+  let y = ey;
+  grid[y][x] = PATH;
+  while (!(x === cx && y === cy) && grid[y][x] !== PATH) {
+    if (x < cx) x++;
+    else if (x > cx) x--;
+    if (y < cy) y++;
+    else if (y > cy) y--;
+    grid[y][x] = PATH;
+  }
+  grid[ey][ex] = EXIT;
+}
+
+// ensure at least N exits are connected to the path (N = 2 minimum)
+function ensureMinConnectedExits(grid, exits, minConnected = 2) {
+  // mark which exits are already adjacent to PATH
+  const adj = [
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+  ];
+
+  const connected = exits.map(([ex, ey]) => {
+    const near = adj.some(([dx, dy]) => {
+      const nx = ex + dx;
+      const ny = ey + dy;
+      return nx >= 0 && ny >= 0 && nx < grid[0].length && ny < grid.length && grid[ny][nx] === PATH;
+    });
+    return near;
+  });
+
+  let totalConnected = connected.filter(Boolean).length;
+
+  // If not enough, connect random unconnected exits
+  const unconnectedIndices = connected
+    .map((v, i) => (!v ? i : -1))
+    .filter((i) => i !== -1);
+
+  while (totalConnected < minConnected && unconnectedIndices.length > 0) {
+    const idx = unconnectedIndices.splice(Math.floor(Math.random() * unconnectedIndices.length), 1)[0];
+    const [ex, ey] = exits[idx];
+    ensureExitConnected(grid, ex, ey);
+    totalConnected++;
+  }
+
+  // finally mark all exits as EXIT in grid (some already set)
+  exits.forEach(([ex, ey]) => {
+    if (grid[ey][ex] !== EXIT) grid[ey][ex] = grid[ey][ex] === PATH ? EXIT : EXIT;
+  });
+}
+
+// Generate single room (row, col coordinates only used for special-casing start)
+function generateRoom(row, col) {
+  const grid = createEmptyGrid(ROOM_W, ROOM_H);
+
+  // carve maze
+  carveMaze(grid);
+
+  const midX = Math.floor(ROOM_W / 2);
+  const midY = Math.floor(ROOM_H / 2);
+
+  // compute exit coordinates (center of edges)
+  const exits = [];
+
+  // Special rule: first room is linksboven (row=0,col=0) -> only right + bottom
+  if (row === 0 && col === 0) {
+    exits.push([ROOM_W - 1, midY]); // right
+    exits.push([midX, ROOM_H - 1]); // bottom
+  } else {
+    // all four exits visible
+    exits.push([0, midY]); // left
+    exits.push([ROOM_W - 1, midY]); // right
+    exits.push([midX, 0]); // top
+    exits.push([midX, ROOM_H - 1]); // bottom
+  }
+
+  // Ensure at least 2 exits connected to path
+  ensureMinConnectedExits(grid, exits, 2);
+
+  return {
+    tiles: grid,
+    exits,
+    discovered: row === 0 && col === 0, // only start discovered
+    color: `hsl(${Math.floor(Math.random() * 360)}, 45%, 28%)`,
+    row,
+    col,
+  };
+}
+
+// Build the full 4x4 board (array of rooms)
+function generateBoard() {
+  const board = [];
+  for (let r = 0; r < BOARD_ROWS; r++) {
+    const brow = [];
+    for (let c = 0; c < BOARD_COLS; c++) {
+      brow.push(generateRoom(r, c));
+    }
+    board.push(brow);
+  }
+  return board;
 }
 
 export default function Board() {
-  const [rooms, setRooms] = useState([]);
+  const [board, setBoard] = useState([]);
+  // active room highlight (start at 0,0 per afspraak)
+  const [active, setActive] = useState({ row: 0, col: 0 });
 
   useEffect(() => {
-    const newRooms = [];
-    for (let r = 0; r < BOARD_ROWS; r++) {
-      const row = [];
-      for (let c = 0; c < BOARD_COLS; c++) {
-        row.push(generateRoom(r, c));
-      }
-      newRooms.push(row);
-    }
-    setRooms(newRooms);
+    const b = generateBoard();
+    setBoard(b);
+    setActive({ row: 0, col: 0 });
   }, []);
 
+  // helper: check if cell is an exit
+  function isExit(tiles, x, y) {
+    return tiles[y][x] === EXIT;
+  }
+
+  if (!board.length) return <div>Loading...</div>;
+
   return (
-    <div className="board">
-      {rooms.map((row, r) => (
-        <div key={r} className="board-row">
-          {row.map((room, c) => (
-            <div key={c} className="room">
-              {room.map((rowCells, y) => (
-                <div key={y} className="room-row">
-                  {rowCells.map((cell, x) => {
-                    let className = "cell";
-                    if (cell === WALL) className += " wall";
-                    if (cell === PATH) className += " path";
-                    if (cell === EXIT) className += " exit";
-                    return <div key={x} className={className}></div>;
-                  })}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      ))}
+    <div className="board-root">
+      <h2 className="title">Sleutel</h2>
+      <div className="board-grid">
+        {board.map((rowRooms, r) =>
+          rowRooms.map((room, c) => {
+            const isActive = active.row === r && active.col === c;
+            return (
+              <div
+                key={`${r}-${c}`}
+                className={`room ${room.discovered ? "discovered" : "hidden"}`}
+                style={{ borderColor: isActive ? "#fff" : "#333", background: room.discovered ? room.color : "#111" }}
+              >
+                {/* render tiles */}
+                {room.tiles.map((rowCells, y) => (
+                  <div key={y} className="room-row">
+                    {rowCells.map((cell, x) => {
+                      const classNames = ["cell"];
+                      if (cell === WALL) classNames.push("cell-wall");
+                      if (cell === PATH) classNames.push("cell-path");
+                      if (cell === EXIT) classNames.push("cell-exit");
+                      return <div key={x} className={classNames.join(" ")} />;
+                    })}
+                  </div>
+                ))}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="legend">
+        <div className="legend-item"><span className="cell cell-path small"></span> pad</div>
+        <div className="legend-item"><span className="cell cell-exit small"></span> uitgang</div>
+        <div className="legend-item"><span className="cell cell-wall small"></span> muur</div>
+      </div>
     </div>
   );
 }
