@@ -1,35 +1,37 @@
 .board {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  background: #222;
-  overflow: hidden; /* verwijdert scrollbars */
-  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 10px;
+}
+
+.board-row {
+  display: flex;
 }
 
 .room {
-  display: grid;
-  grid-template-columns: repeat(11, 20px);
-  grid-template-rows: repeat(7, 20px);
-  gap: 1px;
-  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #333;
+  margin: 5px;
 }
 
-.tile {
-  width: 20px;
-  height: 20px;
+.room-row {
+  display: flex;
+}
+
+.cell {
+  width: 15px;
+  height: 15px;
 }
 
 .wall {
-  background: #444;
+  background: #222;
 }
 
 .path {
-  background: #eee;
-}
-
-.player {
-  background: red;
+  background: #ccc;
 }
 
 .exit {
