@@ -1,250 +1,163 @@
-// src/Board.jsx
 import React, { useState, useEffect } from "react";
 import "./Board.css";
 
-const BOARD_WIDTH = 4;
-const BOARD_HEIGHT = 4;
-const ROOM_WIDTH = 11;  // oneven
-const ROOM_HEIGHT = 7;  // oneven
+const ROOM_SIZE = 9; // oneven zodat uitgangen midden zitten
+const BOARD_ROWS = 4;
+const BOARD_COLS = 4;
 
-function createEmptyRoom() {
-  return Array.from({ length: ROOM_HEIGHT }, () =>
-    Array.from({ length: ROOM_WIDTH }, () => "wall")
+// Cel types
+const EMPTY = 0;
+const WALL = 1;
+const PATH = 2;
+const EXIT = 3;
+
+function generateMaze(roomSize, exits) {
+  // Maak grid vol walls
+  const grid = Array.from({ length: roomSize }, () =>
+    Array(roomSize).fill(WALL)
   );
-}
 
-// Carve a path from start to end inside a room
-function carvePath(tiles, start, end) {
-  let x = start.x;
-  let y = start.y;
-  tiles[y][x] = "path";
-  while (x !== end.x || y !== end.y) {
-    const dx = end.x - x;
-    const dy = end.y - y;
-    if (dx !== 0 && (Math.random() < 0.5 || dy === 0)) x += dx > 0 ? 1 : -1;
-    else if (dy !== 0) y += dy > 0 ? 1 : -1;
-    tiles[y][x] = "path";
-  }
-}
+  // Start midden
+  const startX = Math.floor(roomSize / 2);
+  const startY = Math.floor(roomSize / 2);
+  grid[startY][startX] = PATH;
 
-// Optional side paths
-function addSidePaths(tiles, count = 2) {
-  for (let i = 0; i < count; i++) {
-    let x = Math.floor(Math.random() * ROOM_WIDTH);
-    let y = Math.floor(Math.random() * ROOM_HEIGHT);
-    if (tiles[y][x] !== "path") continue;
-    let length = 1 + Math.floor(Math.random() * 3);
-    for (let j = 0; j < length; j++) {
-      const dir = Math.floor(Math.random() * 4);
-      if (dir === 0 && x > 0) x--;
-      if (dir === 1 && x < ROOM_WIDTH - 1) x++;
-      if (dir === 2 && y > 0) y--;
-      if (dir === 3 && y < ROOM_HEIGHT - 1) y++;
-      if (tiles[y][x] === "wall") tiles[y][x] = "path";
+  const stack = [[startX, startY]];
+
+  // DFS maze carving
+  const directions = [
+    [0, -2],
+    [0, 2],
+    [-2, 0],
+    [2, 0],
+  ];
+
+  while (stack.length > 0) {
+    const [x, y] = stack[stack.length - 1];
+
+    // Vind alle buren die walls zijn
+    const neighbors = directions
+      .map(([dx, dy]) => [x + dx, y + dy])
+      .filter(
+        ([nx, ny]) =>
+          nx > 0 &&
+          ny > 0 &&
+          nx < roomSize - 1 &&
+          ny < roomSize - 1 &&
+          grid[ny][nx] === WALL
+      );
+
+    if (neighbors.length === 0) {
+      stack.pop();
+    } else {
+      const [nx, ny] =
+        neighbors[Math.floor(Math.random() * neighbors.length)];
+      const mx = (x + nx) / 2;
+      const my = (y + ny) / 2;
+      grid[my][mx] = PATH;
+      grid[ny][nx] = PATH;
+      stack.push([nx, ny]);
     }
   }
-}
 
-// Generate a single room with entrances/exits
-function generateRoom(x, y) {
-  const tiles = createEmptyRoom();
-  const exits = {
-    left: { x: 0, y: Math.floor(ROOM_HEIGHT / 2) },
-    right: { x: ROOM_WIDTH - 1, y: Math.floor(ROOM_HEIGHT / 2) },
-    top: { x: Math.floor(ROOM_WIDTH / 2), y: 0 },
-    bottom: { x: Math.floor(ROOM_WIDTH / 2), y: ROOM_HEIGHT - 1 },
-  };
+  // Zet exits en verbind met maze
+  exits.forEach(([ex, ey]) => {
+    grid[ey][ex] = EXIT;
 
-  // First room: only right and bottom
-  if (x === 0 && y === 0) {
-    carvePath(tiles, { x: 0, y: 0 }, exits.right);
-    carvePath(tiles, { x: 0, y: 0 }, exits.bottom);
-    addSidePaths(tiles, 2);
-    return {
-      x,
-      y,
-      tiles,
-      exits: { right: exits.right, bottom: exits.bottom },
-      color: `hsl(${Math.random() * 360},50%,30%)`,
-      discovered: true,
-      isStart: true,
-    };
-  }
-
-  // Other rooms: 4 exits
-  carvePath(tiles, exits.left, exits.right);
-  carvePath(tiles, exits.top, exits.bottom);
-  addSidePaths(tiles, 2);
-  for (const dir of ["left", "right", "top", "bottom"]) {
-    tiles[exits[dir].y][exits[dir].x] = "path";
-  }
-
-  return {
-    x,
-    y,
-    tiles,
-    exits,
-    color: `hsl(${Math.random() * 360},50%,30%)`,
-    discovered: false,
-    isStart: false,
-  };
-}
-
-// Rotate room 180 degrees
-function rotateRoom180(room) {
-  if (room.isStart) return room;
-  const newTiles = createEmptyRoom();
-  for (let y = 0; y < ROOM_HEIGHT; y++) {
-    for (let x = 0; x < ROOM_WIDTH; x++) {
-      newTiles[ROOM_HEIGHT - 1 - y][ROOM_WIDTH - 1 - x] = room.tiles[y][x];
+    // Als exit niet aan pad grenst -> verbind
+    if (
+      ![
+        [0, 1],
+        [0, -1],
+        [1, 0],
+        [-1, 0],
+      ].some(([dx, dy]) => {
+        const nx = ex + dx;
+        const ny = ey + dy;
+        return (
+          nx >= 0 &&
+          ny >= 0 &&
+          nx < roomSize &&
+          ny < roomSize &&
+          grid[ny][nx] === PATH
+        );
+      })
+    ) {
+      // verbind naar centrum
+      let cx = startX;
+      let cy = startY;
+      let x = ex;
+      let y = ey;
+      while (x !== cx || y !== cy) {
+        if (x < cx) x++;
+        else if (x > cx) x--;
+        if (y < cy) y++;
+        else if (y > cy) y--;
+        grid[y][x] = PATH;
+      }
     }
+  });
+
+  return grid;
+}
+
+function generateRoom(row, col) {
+  const size = ROOM_SIZE;
+  const exits = [];
+
+  const mid = Math.floor(size / 2);
+
+  // Linksonder: alleen rechts + boven
+  if (row === BOARD_ROWS - 1 && col === 0) {
+    exits.push([size - 1, mid]); // rechts
+    exits.push([mid, 0]); // boven
+  } else {
+    // Normale kamer -> 4 exits
+    exits.push([0, mid]); // links
+    exits.push([size - 1, mid]); // rechts
+    exits.push([mid, 0]); // boven
+    exits.push([mid, size - 1]); // onder
   }
-  const newExits = {
-    left: { x: 0, y: ROOM_HEIGHT - 1 - room.exits.right.y },
-    right: { x: ROOM_WIDTH - 1, y: ROOM_HEIGHT - 1 - room.exits.left.y },
-    top: { x: ROOM_WIDTH - 1 - room.exits.bottom.x, y: 0 },
-    bottom: { x: ROOM_WIDTH - 1 - room.exits.top.x, y: ROOM_HEIGHT - 1 },
-  };
-  return { ...room, tiles: newTiles, exits: newExits };
+
+  return generateMaze(size, exits);
 }
 
 export default function Board() {
   const [rooms, setRooms] = useState([]);
-  const [player, setPlayer] = useState({ roomX: 0, roomY: 0, x: 0, y: 0 });
 
   useEffect(() => {
-    const generated = [];
-    for (let y = 0; y < BOARD_HEIGHT; y++) {
+    const newRooms = [];
+    for (let r = 0; r < BOARD_ROWS; r++) {
       const row = [];
-      for (let x = 0; x < BOARD_WIDTH; x++) {
-        row.push(generateRoom(x, y));
+      for (let c = 0; c < BOARD_COLS; c++) {
+        row.push(generateRoom(r, c));
       }
-      generated.push(row);
+      newRooms.push(row);
     }
-    setRooms(generated);
+    setRooms(newRooms);
   }, []);
-
-  useEffect(() => {
-    function handleKey(e) {
-      if (e.key === "r" || e.key === "R") {
-        setRooms((prevRooms) => {
-          const updated = [...prevRooms];
-          const current = updated[player.roomY][player.roomX];
-          const rotated = rotateRoom180(current);
-          const newX = ROOM_WIDTH - 1 - player.x;
-          const newY = ROOM_HEIGHT - 1 - player.y;
-          updated[player.roomY][player.roomX] = rotated;
-          setPlayer({ ...player, x: newX, y: newY });
-          return updated;
-        });
-        return;
-      }
-
-      setPlayer((prev) => {
-        const room = rooms[prev.roomY]?.[prev.roomX];
-        if (!room) return prev;
-        let nx = prev.x;
-        let ny = prev.y;
-        let roomX = prev.roomX;
-        let roomY = prev.roomY;
-
-        if (e.key === "ArrowUp") ny--;
-        if (e.key === "ArrowDown") ny++;
-        if (e.key === "ArrowLeft") nx--;
-        if (e.key === "ArrowRight") nx++;
-
-        // Handle moving between rooms
-        const exits = room.exits;
-
-        if (nx < 0 && exits.left) {
-          if (!(roomX === 0 && roomY === BOARD_HEIGHT - 1)) {
-            roomX = roomX > 0 ? roomX - 1 : BOARD_WIDTH - 1;
-            nx = ROOM_WIDTH - 1;
-            ny = rooms[roomY][roomX].exits.right.y;
-          } else return prev;
-        }
-
-        if (nx >= ROOM_WIDTH && exits.right) {
-          if (!(roomX === BOARD_WIDTH - 1 && roomY === 0)) {
-            roomX = roomX < BOARD_WIDTH - 1 ? roomX + 1 : 0;
-            nx = 0;
-            ny = rooms[roomY][roomX].exits.left.y;
-          } else return prev;
-        }
-
-        if (ny < 0 && exits.top) {
-          if (roomY > 0) {
-            roomY--;
-            ny = ROOM_HEIGHT - 1;
-            nx = rooms[roomY][roomX].exits.bottom.x;
-          } else return prev;
-        }
-
-        if (ny >= ROOM_HEIGHT && exits.bottom) {
-          if (roomY < BOARD_HEIGHT - 1) {
-            roomY++;
-            ny = 0;
-            nx = rooms[roomY][roomX].exits.top.x;
-          } else return prev;
-        }
-
-        const newRoom = rooms[roomY][roomX];
-        if (newRoom.tiles[ny]?.[nx] === "path") {
-          newRoom.discovered = true;
-          setRooms([...rooms]);
-          return { roomX, roomY, x: nx, y: ny };
-        }
-        return prev;
-      });
-    }
-
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [rooms, player]);
-
-  if (rooms.length === 0) return <div>Loading...</div>;
 
   return (
     <div className="board">
-      {rooms.map((row, ry) =>
-        row.map((room, rx) => (
-          <div
-            key={`${rx}-${ry}`}
-            className="room"
-            style={{ backgroundColor: room.discovered ? room.color : "#111" }}
-          >
-            {room.discovered &&
-              room.tiles.map((r, y) =>
-                r.map((tile, x) => {
-                  const isPlayer =
-                    player.roomX === rx &&
-                    player.roomY === ry &&
-                    player.x === x &&
-                    player.y === y;
-                  const isExit =
-                    Object.values(room.exits).some(
-                      (e) => e.x === x && e.y === y
-                    );
-                  return (
-                    <div
-                      key={`${x}-${y}`}
-                      className={
-                        "tile " +
-                        (isPlayer
-                          ? "player"
-                          : isExit
-                          ? "exit"
-                          : tile === "path"
-                          ? "path"
-                          : "wall")
-                      }
-                    />
-                  );
-                })
-              )}
-          </div>
-        ))
-      )}
+      {rooms.map((row, r) => (
+        <div key={r} className="board-row">
+          {row.map((room, c) => (
+            <div key={c} className="room">
+              {room.map((rowCells, y) => (
+                <div key={y} className="room-row">
+                  {rowCells.map((cell, x) => {
+                    let className = "cell";
+                    if (cell === WALL) className += " wall";
+                    if (cell === PATH) className += " path";
+                    if (cell === EXIT) className += " exit";
+                    return <div key={x} className={className}></div>;
+                  })}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
