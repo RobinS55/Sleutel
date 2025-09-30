@@ -3,7 +3,10 @@ import ReactDOM from "react-dom/client";
 import Board from "./Board";
 import "./Board.css";
 
-document.title = "Sleutel";
+document.title = "Het bordspel sleutel";
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<Board />);
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <Board />
+  </React.StrictMode>
+);
