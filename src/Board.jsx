@@ -3,8 +3,8 @@ import "./Board.css";
 
 const TILE_WIDTH = 15;
 const TILE_HEIGHT = 7;
+const BOARD_SIZE = 4; // 4x4
 
-// Kleuren
 const COLORS = {
   wall: "#000",
   path: "#888",
@@ -16,12 +16,13 @@ const COLORS = {
 const START_TILE = { x: 0, y: 0 };
 const START_POS = { row: 0, col: 0 };
 
-// Hulpfuncties
+// Helper: lege tegel
 const generateEmptyTile = () =>
   Array.from({ length: TILE_HEIGHT }, () =>
     Array.from({ length: TILE_WIDTH }, () => "wall")
   );
 
+// Helper: genereer paden voor een tegel
 const generateTilePaths = (tileIndex) => {
   const tile = generateEmptyTile();
 
@@ -45,7 +46,7 @@ const generateTilePaths = (tileIndex) => {
     return tile;
   }
 
-  // Overige tegels: 2-3 willekeurige kronkelpaden
+  // Andere tegels: minimaal 2 paden
   const pathCount = 2 + Math.floor(Math.random() * 2);
   for (let i = 0; i < pathCount; i++) {
     const startDir = ["top","bottom","left","right"][Math.floor(Math.random()*4)];
@@ -64,10 +65,10 @@ const generateTilePaths = (tileIndex) => {
   return tile;
 };
 
-// Genereer 4x4 tegels
+// Genereer bord
 const generateBoard = () => {
   const tiles = [];
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < BOARD_SIZE*BOARD_SIZE; i++) {
     tiles.push({ grid: generateTilePaths(i), discovered: i === 0 });
   }
   return tiles;
@@ -85,12 +86,12 @@ export default function Board() {
     const [dr, dc] = dir;
     let newR = playerPos.row + dr;
     let newC = playerPos.col + dc;
-    const tileIndex = playerTile.y*4 + playerTile.x;
+    const tileIndex = playerTile.y*BOARD_SIZE + playerTile.x;
     const tile = board[tileIndex];
 
-    // Beweeg alleen op path
-    if (newR >= 0 && newR < TILE_HEIGHT && newC >= 0 && newC < TILE_WIDTH && tile.grid[newR][newC] === "path") {
-      setPlayerPos({ row: newR, col: newC });
+    // Beweeg alleen op pad
+    if (newR >=0 && newR<TILE_HEIGHT && newC>=0 && newC<TILE_WIDTH && tile.grid[newR][newC]==="path") {
+      setPlayerPos({ row:newR, col:newC });
     }
   };
 
@@ -102,8 +103,8 @@ export default function Board() {
   return (
     <div className="board-container">
       {board.map((tile, idx) => {
-        const tileX = idx % 4;
-        const tileY = Math.floor(idx / 4);
+        const tileX = idx % BOARD_SIZE;
+        const tileY = Math.floor(idx / BOARD_SIZE);
         return (
           <div
             key={idx}
