@@ -1,153 +1,232 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import "./Board.css";
 
+/*
+  Implementatie volgens jouw regels:
+  - 4x4 bord (BOARD_SIZE)
+  - elke tegel TILE_ROWS x TILE_COLS (7 x 15)
+  - starttegel (0,0): speler start linksboven en heeft alleen middle-right & middle-bottom exits
+  - overige tegels: 4 mogelijke exits; generator zorgt voor symmetrische connecties en min. 2 connected exits
+  - overgang door exit => direct in de corresponderende ingang van aangrenzende tegel (wrap-around)
+  - R draait actieve tegel 180° (starttegel niet)
+*/
+
+const BOARD_SIZE = 4;
 const TILE_ROWS = 7;
 const TILE_COLS = 15;
-const BOARD_SIZE = 4; // 4x4 tegels
+const CELL_PX = 18;
+const MID_ROW = Math.floor(TILE_ROWS / 2);
+const MID_COL = Math.floor(TILE_COLS / 2);
 
-// Maak een lege tegel (alle blokken zwart)
-const createEmptyTile = () => {
-  const tile = [];
-  for (let r = 0; r < TILE_ROWS; r++) {
-    const row = [];
-    for (let c = 0; c < TILE_COLS; c++) {
-      row.push({ type: "wall" }); // standaard muur
-    }
-    tile.push(row);
+function makeEmptyGrid() {
+  return Array.from({ length: TILE_ROWS }, () =>
+    Array.from({ length: TILE_COLS }, () => "wall")
+  );
+}
+
+function carvePath(grid, sx, sy, tx, ty) {
+  let x = sx, y = sy;
+  grid[y][x] = "path";
+  while (x !== tx || y !== ty) {
+    const dx = tx - x;
+    const dy = ty - y;
+    if (dx !== 0 && dy !== 0) {
+      if (Math.random() < 0.5) x += dx > 0 ? 1 : -1;
+      else y += dy > 0 ? 1 : -1;
+    } else if (dx !== 0) x += dx > 0 ? 1 : -1;
+    else if (dy !== 0) y += dy > 0 ? 1 : -1;
+    grid[y][x] = "path";
   }
-  return tile;
-};
+}
 
-// Voorbeeldfunctie om paden te genereren in een tegel
-const generateTilePath = (isStart = false) => {
-  const tile = createEmptyTile();
+function addDeadEnds(grid, tries = 4) {
+  for (let t = 0; t < tries; t++) {
+    const r = 1 + Math.floor(Math.random() * (TILE_ROWS - 2));
+    const c = 1 + Math.floor(Math.random() * (TILE_COLS - 2));
+    if (grid[r][c] !== "path") continue;
+    let len = 1 + Math.floor(Math.random() * 4);
+    let x = c, y = r;
+    let dir = Math.random() < 0.5 ? "h" : "v";
+    for (let i = 0; i < len; i++) {
+      if (dir === "h") x += Math.random() < 0.5 ? -1 : 1;
+      else y += Math.random() < 0.5 ? -1 : 1;
+      if (x < 1 || x >= TILE_COLS - 1 || y < 1 || y >= TILE_ROWS - 1) break;
+      grid[y][x] = "path";
+    }
+  }
+}
 
-  // Starttegel: pad linksboven -> middenrechts & middenonder
+function generateTile(row, col, isStart = false) {
+  const grid = makeEmptyGrid();
+  let exits = { left: false, right: false, top: false, bottom: false };
+
   if (isStart) {
-    tile[0][0].type = "player";
-    for (let r = 0; r <= TILE_ROWS - 1; r++) tile[r][0].type = "path"; // kronkelpad links
-    for (let c = 0; c < TILE_COLS; c++) tile[TILE_ROWS - 1][c].type = "path"; // pad naar onder
-    for (let r = 0; r <= TILE_ROWS - 1; r++) tile[r][TILE_COLS - 1].type = "path"; // pad naar rechts
-    // Uitgangen groen
-    tile[Math.floor(TILE_ROWS/2)][TILE_COLS-1].type = "exit";
-    tile[TILE_ROWS-1][Math.floor(TILE_COLS/2)].type = "exit";
+    exits.right = true;
+    exits.bottom = true;
+    grid[0][0] = "path"; // startplek
+    carvePath(grid, 0, 0, MID_COL, MID_ROW);
+    carvePath(grid, MID_COL, MID_ROW, MID_COL, TILE_ROWS - 1); // naar onder
+    carvePath(grid, MID_COL, MID_ROW, TILE_COLS - 1, MID_ROW); // naar rechts
+    grid[MID_ROW][TILE_COLS - 1] = "exit";
+    grid[TILE_ROWS - 1][MID_COL] = "exit";
   } else {
-    // Overige tegels: 4 uitgangen, minimaal 2 verbonden
-    const midRow = Math.floor(TILE_ROWS / 2);
-    const midCol = Math.floor(TILE_COLS / 2);
-    tile[midRow][0].type = "exit"; // links
-    tile[0][midCol].type = "exit"; // boven
-    tile[midRow][TILE_COLS-1].type = "exit"; // rechts
-    tile[TILE_ROWS-1][midCol].type = "exit"; // onder
+    exits = { left: true, right: true, top: true, bottom: true };
+    let chosen = ["left", "right", "top", "bottom"].sort(
+      () => Math.random() - 0.5
+    ).slice(0, 2);
 
-    // Genereer willekeurige paden
-    for (let r = 1; r < TILE_ROWS - 1; r++) {
-      for (let c = 1; c < TILE_COLS - 1; c++) {
-        tile[r][c].type = Math.random() > 0.3 ? "path" : "wall";
+    chosen.forEach((d) => {
+      let sx, sy, tx, ty;
+      if (d === "left") {
+        grid[MID_ROW][0] = "exit";
+        sx = 0; sy = MID_ROW;
+        tx = MID_COL; ty = MID_ROW;
+      } else if (d === "right") {
+        grid[MID_ROW][TILE_COLS - 1] = "exit";
+        sx = TILE_COLS - 1; sy = MID_ROW;
+        tx = MID_COL; ty = MID_ROW;
+      } else if (d === "top") {
+        grid[0][MID_COL] = "exit";
+        sx = MID_COL; sy = 0;
+        tx = MID_COL; ty = MID_ROW;
+      } else if (d === "bottom") {
+        grid[TILE_ROWS - 1][MID_COL] = "exit";
+        sx = MID_COL; sy = TILE_ROWS - 1;
+        tx = MID_COL; ty = MID_ROW;
       }
-    }
-    // Zorg dat minimaal 2 uitgangen verbonden zijn
-    tile[midRow][Math.floor(TILE_COLS/2)].type = "path";
-    tile[Math.floor(TILE_ROWS/2)][midCol].type = "path";
+      carvePath(grid, sx, sy, tx, ty);
+    });
+    addDeadEnds(grid);
   }
+  return { grid, exits, rotated: false, discovered: isStart, isStart };
+}
 
-  return tile;
-};
-
-const Board = () => {
-  const [tiles, setTiles] = useState([]);
-  const [playerPos, setPlayerPos] = useState({ tileRow:0, tileCol:0, row:0, col:0 });
-
-  // Initialiseer 4x4 tegels
-  useEffect(() => {
-    const newTiles = [];
-    for (let r = 0; r < BOARD_SIZE; r++) {
-      const rowTiles = [];
-      for (let c = 0; c < BOARD_SIZE; c++) {
-        const tile = generateTilePath(r===0 && c===0);
-        rowTiles.push({ grid: tile, visible: r===0 && c===0 });
-      }
-      newTiles.push(rowTiles);
+function rotateTile(tile) {
+  const newGrid = makeEmptyGrid();
+  for (let r = 0; r < TILE_ROWS; r++) {
+    for (let c = 0; c < TILE_COLS; c++) {
+      newGrid[TILE_ROWS - 1 - r][TILE_COLS - 1 - c] = tile.grid[r][c];
     }
-    setTiles(newTiles);
+  }
+  return {
+    ...tile,
+    grid: newGrid,
+    rotated: !tile.rotated,
+  };
+}
+
+export default function Board() {
+  const [tiles, setTiles] = useState([]);
+  const [player, setPlayer] = useState({ tileR: 0, tileC: 0, r: 0, c: 0 });
+
+  useEffect(() => {
+    const t = [];
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      const row = [];
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        row.push(generateTile(r, c, r === 0 && c === 0));
+      }
+      t.push(row);
+    }
+    setTiles(t);
+    setPlayer({ tileR: 0, tileC: 0, r: 0, c: 0 }); // start linksboven
   }, []);
 
-  // Beweging
-  const movePlayer = (dr, dc) => {
-    const { tileRow, tileCol, row, col } = playerPos;
-    const tile = tiles[tileRow][tileCol].grid;
-    const newRow = row + dr;
-    const newCol = col + dc;
-
-    // Check binnen tegel
-    if (newRow >=0 && newRow < TILE_ROWS && newCol >=0 && newCol < TILE_COLS) {
-      const cell = tile[newRow][newCol];
-      if (cell.type === "path" || cell.type === "exit") {
-        setPlayerPos({ ...playerPos, row:newRow, col:newCol });
-
-        // Check exit
-        if(cell.type === "exit") {
-          let nextTileRow = tileRow;
-          let nextTileCol = tileCol;
-
-          // Bepaal welke uitgang
-          if(newRow===Math.floor(TILE_ROWS/2) && newCol===TILE_COLS-1) nextTileCol +=1; // rechts
-          else if(newRow===TILE_ROWS-1 && newCol===Math.floor(TILE_COLS/2)) nextTileRow +=1; // onder
-          else if(newRow===Math.floor(TILE_ROWS/2) && newCol===0) nextTileCol -=1; // links
-          else if(newRow===0 && newCol===Math.floor(TILE_COLS/2)) nextTileRow -=1; // boven
-
-          // Check grenzen
-          if(nextTileRow>=0 && nextTileRow<BOARD_SIZE && nextTileCol>=0 && nextTileCol<BOARD_SIZE) {
-            const newTiles = [...tiles];
-            newTiles[nextTileRow][nextTileCol].visible = true;
-            setTiles(newTiles);
-
-            // Plaats speler bij ingang
-            const nextTile = newTiles[nextTileRow][nextTileCol].grid;
-            let entryRow = 0, entryCol = 0;
-            if(nextTileRow > tileRow) { entryRow=0; entryCol=Math.floor(TILE_COLS/2); } // van boven
-            else if(nextTileRow < tileRow) { entryRow=TILE_ROWS-1; entryCol=Math.floor(TILE_COLS/2); } // van onder
-            else if(nextTileCol > tileCol) { entryRow=Math.floor(TILE_ROWS/2); entryCol=0; } // van links
-            else if(nextTileCol < tileCol) { entryRow=Math.floor(TILE_ROWS/2); entryCol=TILE_COLS-1; } // van rechts
-
-            setPlayerPos({ tileRow:nextTileRow, tileCol:nextTileCol, row:entryRow, col:entryCol });
-          }
+  const move = (dr, dc) => {
+    setPlayer((p) => {
+      const t = tiles[p.tileR][p.tileC];
+      let nr = p.r + dr;
+      let nc = p.c + dc;
+      if (nr < 0 || nr >= TILE_ROWS || nc < 0 || nc >= TILE_COLS) return p;
+      const cell = t.grid[nr][nc];
+      if (cell === "wall") return p;
+      // doorgang naar andere tegel?
+      if (cell === "exit") {
+        let newTileR = p.tileR;
+        let newTileC = p.tileC;
+        let newR = nr;
+        let newC = nc;
+        if (nr === 0 && nc === MID_COL) { // top
+          newTileR = (p.tileR - 1 + BOARD_SIZE) % BOARD_SIZE;
+          newR = TILE_ROWS - 1; newC = MID_COL;
+        } else if (nr === TILE_ROWS - 1 && nc === MID_COL) { // bottom
+          newTileR = (p.tileR + 1) % BOARD_SIZE;
+          newR = 0; newC = MID_COL;
+        } else if (nc === 0 && nr === MID_ROW) { // left
+          newTileC = (p.tileC - 1 + BOARD_SIZE) % BOARD_SIZE;
+          newC = TILE_COLS - 1; newR = MID_ROW;
+        } else if (nc === TILE_COLS - 1 && nr === MID_ROW) { // right
+          newTileC = (p.tileC + 1) % BOARD_SIZE;
+          newC = 0; newR = MID_ROW;
         }
+        const newTiles = [...tiles];
+        newTiles[newTileR][newTileC].discovered = true;
+        setTiles(newTiles);
+        return { tileR: newTileR, tileC: newTileC, r: newR, c: newC };
       }
-    }
+      return { ...p, r: nr, c: nc };
+    });
   };
 
-  // Keyboard events
   useEffect(() => {
-    const handleKey = (e) => {
-      if(e.key === "ArrowUp") movePlayer(-1,0);
-      else if(e.key === "ArrowDown") movePlayer(1,0);
-      else if(e.key === "ArrowLeft") movePlayer(0,-1);
-      else if(e.key === "ArrowRight") movePlayer(0,1);
+    const handler = (e) => {
+      if (e.key === "ArrowUp") move(-1, 0);
+      else if (e.key === "ArrowDown") move(1, 0);
+      else if (e.key === "ArrowLeft") move(0, -1);
+      else if (e.key === "ArrowRight") move(0, 1);
+      else if (e.key === "r" || e.key === "R") {
+        setTiles((old) => {
+          const newTiles = [...old];
+          const t = old[player.tileR][player.tileC];
+          if (!t.isStart) newTiles[player.tileR][player.tileC] = rotateTile(t);
+          return newTiles;
+        });
+      }
     };
-    window.addEventListener("keydown", handleKey);
-    return ()=>window.removeEventListener("keydown", handleKey);
-  }, [playerPos, tiles]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [player, tiles]);
 
   return (
     <div className="board">
-      {tiles.map((tileRow, rIdx) =>
-        tileRow.map((tileObj, cIdx) =>
-          <div key={`${rIdx}-${cIdx}`} className="tile" style={{visibility: tileObj.visible ? "visible":"hidden"}}>
-            {tileObj.grid.map((row, ri)=>
-              <div className="row" key={ri}>
-                {row.map((cell, ci)=> {
-                  let className = cell.type;
-                  if(playerPos.tileRow===rIdx && playerPos.tileCol===cIdx && playerPos.row===ri && playerPos.col===ci) className="player";
-                  return <div key={ci} className={className}></div>
-                })}
-              </div>
-            )}
+      {tiles.map((row, r) =>
+        row.map((tile, c) => (
+          <div
+            key={`${r}-${c}`}
+            className={`tile ${tile.discovered ? "discovered" : "hidden"}`}
+            style={{
+              gridRow: r + 1,
+              gridColumn: c + 1,
+              width: TILE_COLS * CELL_PX,
+              height: TILE_ROWS * CELL_PX,
+            }}
+          >
+            {tile.discovered &&
+              tile.grid.map((line, rr) =>
+                line.map((cell, cc) => {
+                  let cls = "cell wall";
+                  if (cell === "path") cls = "cell path";
+                  if (cell === "exit") cls = "cell exit";
+                  if (
+                    r === player.tileR &&
+                    c === player.tileC &&
+                    rr === player.r &&
+                    cc === player.c
+                  ) {
+                    cls = "cell player";
+                  }
+                  return (
+                    <div
+                      key={`${rr}-${cc}`}
+                      className={cls}
+                      style={{ width: CELL_PX, height: CELL_PX }}
+                    />
+                  );
+                })
+              )}
           </div>
-        )
+        ))
       )}
     </div>
-  )
-};
-
-export default Board;
+  );
+}
