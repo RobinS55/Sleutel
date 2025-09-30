@@ -5,7 +5,6 @@ const TILE_WIDTH = 15;
 const TILE_HEIGHT = 7;
 const BOARD_SIZE = 4; // 4x4
 
-// Startpositie
 const START_TILE = { x: 0, y: 0 };
 const START_POS = { row: 0, col: 0 };
 
@@ -34,7 +33,6 @@ const generateTilePaths = (tileIndex) => {
     return tile;
   }
 
-  // Andere tegels: minimaal 2 paden
   const pathPairs = [
     ["left", "right"],
     ["top", "bottom"],
@@ -84,6 +82,46 @@ export default function Board() {
   const [playerTile, setPlayerTile] = useState(START_TILE);
   const [playerPos, setPlayerPos] = useState(START_POS);
 
+  const TILE_MID_ROW = Math.floor(TILE_HEIGHT / 2);
+  const TILE_MID_COL = Math.floor(TILE_WIDTH / 2);
+
+  // Controleer of speler bij uitgang staat en switch tegel
+  const checkTileTransition = (r, c) => {
+    let newTile = { ...playerTile };
+    let newPos = { row: r, col: c };
+    const currentIdx = playerTile.y * BOARD_SIZE + playerTile.x;
+
+    const exitDirs = {
+      top: { r: 0, c: TILE_MID_COL, dx: 0, dy: -1 },
+      bottom: { r: TILE_HEIGHT - 1, c: TILE_MID_COL, dx: 0, dy: 1 },
+      left: { r: TILE_MID_ROW, c: 0, dx: -1, dy: 0 },
+      right: { r: TILE_MID_ROW, c: TILE_WIDTH - 1, dx: 1, dy: 0 },
+    };
+
+    for (let dir in exitDirs) {
+      const ex = exitDirs[dir];
+      if (r === ex.r && c === ex.c) {
+        const targetX = playerTile.x + ex.dx;
+        const targetY = playerTile.y + ex.dy;
+
+        // Uitzonderingen: links onder / rechts boven / starttegel
+        if ((targetX < 0 && targetY === BOARD_SIZE-1) || (targetY <0 && targetX===BOARD_SIZE-1)) return;
+        if (targetX < 0 || targetX >= BOARD_SIZE || targetY < 0 || targetY >= BOARD_SIZE) return;
+
+        newTile = { x: targetX, y: targetY };
+        newPos = { row: TILE_MID_ROW, col: TILE_MID_COL };
+        setBoard((prev) => {
+          const idx = newTile.y * BOARD_SIZE + newTile.x;
+          const newBoard = [...prev];
+          newBoard[idx] = { ...newBoard[idx], discovered: true };
+          return newBoard;
+        });
+        break;
+      }
+    }
+    return newPos ? { newTile, newPos } : null;
+  };
+
   const handleKey = (e) => {
     e.preventDefault();
     const dirMap = { ArrowUp: [-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1] };
@@ -96,7 +134,13 @@ export default function Board() {
     const tile = board[tileIndex];
 
     if (newR >=0 && newR<TILE_HEIGHT && newC>=0 && newC<TILE_WIDTH && tile.grid[newR][newC]==="path") {
-      setPlayerPos({ row:newR, col:newC });
+      let transition = checkTileTransition(newR,newC);
+      if (transition) {
+        setPlayerTile(transition.newTile);
+        setPlayerPos(transition.newPos);
+      } else {
+        setPlayerPos({ row:newR, col:newC });
+      }
     }
   };
 
