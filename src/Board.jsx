@@ -5,13 +5,6 @@ const TILE_WIDTH = 15;
 const TILE_HEIGHT = 7;
 const BOARD_SIZE = 4; // 4x4
 
-const COLORS = {
-  wall: "#000",
-  path: "#888",
-  player: "#ff0",
-  exit: "#0f0",
-};
-
 // Startpositie
 const START_TILE = { x: 0, y: 0 };
 const START_POS = { row: 0, col: 0 };
@@ -25,17 +18,15 @@ const generateEmptyTile = () =>
 // Genereer paden
 const generateTilePaths = (tileIndex) => {
   const tile = generateEmptyTile();
-
   const midRow = Math.floor(TILE_HEIGHT / 2);
   const midCol = Math.floor(TILE_WIDTH / 2);
 
-  // Starttegel
   if (tileIndex === 0) {
-    // Kronkelpad linksboven start naar middenrechts en middenonder
+    // Starttegel linksboven
     let r = 0, c = 0;
-    while (c < midCol) { tile[r][c] = "path"; c++; }
+    while (c <= midCol) { tile[r][c] = "path"; c++; }
     r = 0; c = midCol;
-    while (r < midRow) { tile[r][c] = "path"; r++; }
+    while (r <= midRow) { tile[r][c] = "path"; r++; }
     r = midRow; c = midCol;
     while (c < TILE_WIDTH) { tile[r][c] = "path"; c++; }
     r = midRow; c = midCol;
@@ -51,6 +42,8 @@ const generateTilePaths = (tileIndex) => {
     ["top", "right"],
   ];
   const selected = pathPairs[Math.floor(Math.random() * pathPairs.length)];
+  const startDir = selected[0];
+  const endDir = selected[1];
 
   const positions = {
     left: { r: midRow, c: 0 },
@@ -59,17 +52,21 @@ const generateTilePaths = (tileIndex) => {
     bottom: { r: TILE_HEIGHT - 1, c: midCol },
   };
 
-  selected.forEach(([startDir, endDir]) => {
-    let { r, c } = positions[startDir];
-    const { r: tr, c: tc } = positions[endDir];
-    while (r !== tr || c !== tc) {
-      tile[r][c] = "path";
-      if (r < tr) r++; else if (r > tr) r--;
-      if (c < tc) c++; else if (c > tc) c--;
-    }
-    tile[tr][tc] = "path";
-  });
+  const startPos = positions[startDir];
+  const endPos = positions[endDir];
+  if (!startPos || !endPos) return tile;
 
+  let r = startPos.r;
+  let c = startPos.c;
+
+  while (r !== endPos.r || c !== endPos.c) {
+    tile[r][c] = "path";
+    if (r < endPos.r) r++;
+    else if (r > endPos.r) r--;
+    if (c < endPos.c) c++;
+    else if (c > endPos.c) c--;
+  }
+  tile[endPos.r][endPos.c] = "path";
   return tile;
 };
 
@@ -106,7 +103,7 @@ export default function Board() {
   useEffect(() => {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  });
+  }, [playerPos, playerTile, board]);
 
   return (
     <div className="board-container">
@@ -127,8 +124,8 @@ export default function Board() {
                 if (tileX===playerTile.x && tileY===playerTile.y && rIdx===playerPos.row && cIdx===playerPos.col) className += " player";
                 if ((rIdx===0 && cIdx===Math.floor(TILE_WIDTH/2)) ||
                     (rIdx===TILE_HEIGHT-1 && cIdx===Math.floor(TILE_WIDTH/2)) ||
-                    (cIdx===Math.floor(TILE_HEIGHT/2) && cIdx===0) ||
-                    (cIdx===TILE_WIDTH-1 && rIdx===Math.floor(TILE_HEIGHT/2))) {
+                    (rIdx===Math.floor(TILE_HEIGHT/2) && cIdx===0) ||
+                    (rIdx===Math.floor(TILE_HEIGHT/2) && cIdx===TILE_WIDTH-1)) {
                   className += " exit";
                 }
                 return <div key={`${rIdx}-${cIdx}`} className={className}></div>
