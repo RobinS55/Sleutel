@@ -1,42 +1,40 @@
 .board {
   display: grid;
   grid-template-columns: repeat(4, auto);
-  grid-gap: 5px;
-  background-color: #333;
+  grid-template-rows: repeat(4, auto);
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  background: black;
   padding: 10px;
 }
 
 .tile {
   display: grid;
-  grid-template-rows: repeat(7, 20px);
-  grid-template-columns: repeat(15, 20px);
-  border: 2px solid #555;
+  grid-template-columns: repeat(15, 18px);
+  grid-template-rows: repeat(7, 18px);
 }
 
-.row {
-  display: contents;
+.tile.hidden {
+  background: #111;
 }
 
-.wall {
-  background-color: black;
-  width: 20px;
-  height: 20px;
+.cell {
+  box-sizing: border-box;
 }
 
-.path {
-  background-color: gray;
-  width: 20px;
-  height: 20px;
+.cell.wall {
+  background: black;
 }
 
-.exit {
-  background-color: green;
-  width: 20px;
-  height: 20px;
+.cell.path {
+  background: gray;
 }
 
-.player {
-  background-color: yellow;
-  width: 20px;
-  height: 20px;
+.cell.exit {
+  background: green;
+}
+
+.cell.player {
+  background: yellow;
 }
